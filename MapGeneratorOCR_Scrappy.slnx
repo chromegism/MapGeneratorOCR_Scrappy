@@ -1,0 +1,7 @@
+<Solution>
+  <Configurations>
+    <Platform Name="x64" />
+    <Platform Name="x86" />
+  </Configurations>
+  <Project Path="MapGeneratorOCR_Scrappy/MapGeneratorOCR_Scrappy.vcxproj" Id="c2bf1b56-ec41-4b04-b102-473fa1cf274f" />
+</Solution>
