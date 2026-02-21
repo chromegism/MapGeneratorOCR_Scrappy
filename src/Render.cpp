@@ -779,11 +779,11 @@ void Renderer::createSyncObjects() {
 	DEBUG_LOG << "Successfully created sync objects" << std::endl;
 }
 
-Renderer::~Renderer() {
+void Renderer::kill() {
 	for (size_t i = 0; i < maxFramesInFlight; i++) {
-		vkDestroySemaphore(device, renderFinishedSemaphores[i], nullptr);
-		vkDestroySemaphore(device, imageAvailableSemaphores[i], nullptr);
-		vkDestroyFence(device, inFlightFences[i], nullptr);
+		vkDestroySemaphore(device, renderFinishedSemaphores.at(i), nullptr);
+		vkDestroySemaphore(device, imageAvailableSemaphores.at(i), nullptr);
+		vkDestroyFence(device, inFlightFences.at(i), nullptr);
 	}
 
 	vkDestroyCommandPool(device, commandPool, nullptr);
@@ -801,6 +801,10 @@ Renderer::~Renderer() {
 	vkDestroySurfaceKHR(instance, surface, nullptr);
 	vkDestroyInstance(instance, nullptr);
 };
+
+Renderer::~Renderer() {
+	this->kill();
+}
 
 void Renderer::drawFrame() {
 	vkWaitForFences(device, 1, &inFlightFences[currentFrame], VK_TRUE, UINT64_MAX);

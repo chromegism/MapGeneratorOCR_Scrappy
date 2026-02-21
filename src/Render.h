@@ -16,6 +16,8 @@ public:
 	void drawFrame();
 	void waitIdle();
 
+	void kill();
+
 private:
 	const std::vector<const char*> deviceExtensions = {
 		VK_KHR_SWAPCHAIN_EXTENSION_NAME,

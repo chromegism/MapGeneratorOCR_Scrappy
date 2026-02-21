@@ -9,10 +9,6 @@ void Application::init() {
 	renderer.init(window.getHandle());
 }
 
-Application::~Application() {
-	window.~Window();
-}
-
 void Application::run() {
 	running = true;
 
