@@ -35,7 +35,9 @@ bld/
 [Ll]ib/
 [Ll]ibs/
 
-
+MapGeneratorOCR_Scrappy/libs/
+MapGeneratorOCR_Scrappy/x64/
+MapGeneratorOCR_Scrappy/x86/
 
 # Visual Studio 2015/2017 cache/options directory
 .vs/
