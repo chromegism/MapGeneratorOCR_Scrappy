@@ -4,6 +4,7 @@
 #include <set>
 #include <algorithm>
 #include <fstream>
+#include <limits>
 
 #include "Render.h"
 #include "DEBUG_LOG.h"
@@ -162,7 +163,7 @@ VkPhysicalDevice Renderer::findBestPhysicalDevice(const std::vector<VkPhysicalDe
 	// which is 69527932928 (a big number)
 	// the score representing the type needs to be much bigger than this
 	constexpr const unsigned long long int MAX_MEMORY_SIZE_GB = 64;
-	constexpr const unsigned long long int MAX_MEMORY_SIZE = MAX_MEMORY_SIZE_GB * 1024i64 * 1024i64 * 1024i64;
+	constexpr const unsigned long long int MAX_MEMORY_SIZE = MAX_MEMORY_SIZE_GB * 1024ULL * 1024ULL * 1024ULL;
 
 	VkPhysicalDevice best_device = nullptr;
 	unsigned long long best_score = 0;
@@ -424,12 +425,14 @@ void Renderer::createSwapChainViews() {
 		createInfo.subresourceRange.baseArrayLayer = 0;
 		createInfo.subresourceRange.layerCount = 1;
 
-		if (vkCreateImageView(device, &createInfo, nullptr, &swapChainImageViews[i]) != VK_SUCCESS) {
+		if (vkCreateImageView(device, &createInfo, nullptr, &swapChainImageViews.at(i)) != VK_SUCCESS) {
 			throw std::runtime_error("failed to create image views");
 		} DEBUG_ELSE{
 			std::cout << "Successfully created swapchain image view " << i << std::endl;
 		}
 	}
+
+	DEBUG_LOG << "Successfully created all swapchain image views" << std::endl;
 }
 
 VkShaderModule Renderer::createShaderModule(const std::vector<char>& code) {
@@ -450,8 +453,12 @@ void Renderer::createGraphicsPipeline() {
 	auto vertShaderCode = readFileCharVector("shaders/test.vert.spv");
 	auto fragShaderCode = readFileCharVector("shaders/test.frag.spv");
 
+	DEBUG_LOG << "Read shader modules" << std::endl;
+
 	VkShaderModule vertShaderModule = createShaderModule(vertShaderCode);
 	VkShaderModule fragShaderModule = createShaderModule(fragShaderCode);
+
+	DEBUG_LOG << "Created shader modules" << std::endl;
 
 
 	VkPipelineShaderStageCreateInfo vertShaderStageInfo{};

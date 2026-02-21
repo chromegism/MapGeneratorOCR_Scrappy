@@ -58,7 +58,7 @@ int render_test() {
 	return EXIT_SUCCESS;
 }
 
-int main(int argc, char* argv) {
+int main(int argc, char* argv[]) {
 	try {
 		return render_test();
 	}
