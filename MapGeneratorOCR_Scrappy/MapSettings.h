@@ -1,10 +1,14 @@
 #pragma once
 #include <string>
+#include <vector>
 
 struct MapSettings {
 	int width;
 	int height;
 	int resolution;
+
+	std::vector<float> perlinOctaves;
+	float perlinBase;
 };
 
 enum class ValidateSettingsErrorCode {

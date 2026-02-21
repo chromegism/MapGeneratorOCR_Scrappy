@@ -29,7 +29,7 @@ PerlinMap::PerlinLayer::PerlinLayer(float x_multiplier, float y_multiplier, floa
 	}
 }
 
-PerlinMap::PerlinMap(float xm, float ym, std::vector<float> octaves, float b) {
+PerlinMap::PerlinMap(float xm, float ym, const std::vector<float> &octaves, float b) {
 	x_multiplier = xm;
 	y_multiplier = ym;
 

@@ -137,8 +137,9 @@ robocopy "$(ProjectDir)shaders" "$(TargetDir)shaders" /mir</Command>
       <AdditionalLibraryDirectories>C:\Users\ruank\source\repos\MapGeneratorOCR_Scrappy\MapGeneratorOCR_Scrappy\libs\x64\Release;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
     <PostBuildEvent>
-      <Command>copy /Y "${ProjectDir)libs\x64\Release\SDL3.dll" "${TargetDir}" &amp;
-copy /Y "${ProjectDir)shaders\" "${TargetDir}shaders\"</Command>
+      <Command>copy /Y "$(ProjectDir)libs\x64\Release\SDL3.dll" "$(TargetDir)" &amp;
+mkdir "$(TargetDir)shaders" &amp;
+copy /Y "$(ProjectDir)shaders\" "$(TargetDir)shaders\"</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>

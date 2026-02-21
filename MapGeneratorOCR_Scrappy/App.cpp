@@ -1,3 +1,5 @@
+#include <iostream>
+
 #include <SDL3/SDL.h>
 
 #include "App.h"
@@ -14,11 +16,14 @@ Application::~Application() {
 void Application::run() {
 	running = true;
 
+	uint32_t frames = 0;
 	while (running) {
 		pollEvents();
 		update();
 		renderer.drawFrame();
+		frames++;
 	}
+	std::cout << frames << std::endl;
 	renderer.waitIdle();
 }
 

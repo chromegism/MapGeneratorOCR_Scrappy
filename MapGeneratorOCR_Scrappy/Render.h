@@ -37,10 +37,15 @@ private:
 	VkPipeline graphicsPipeline;
 	std::vector<VkFramebuffer> swapChainFramebuffers;
 	VkCommandPool commandPool;
-	VkCommandBuffer commandBuffer;
-	VkSemaphore imageAvailableSemaphore;
-	VkSemaphore renderFinishedSemaphore;
-	VkFence inFlightFence;
+	std::vector<VkCommandBuffer> commandBuffers;
+
+	std::vector<VkSemaphore> imageAvailableSemaphores;
+	std::vector<VkSemaphore> renderFinishedSemaphores;
+	std::vector<VkFence> inFlightFences;
+
+	uint32_t maxFramesInFlight;
+
+	uint32_t currentFrame = 0;
 
 	struct QueueFamilyIndices {
 		std::optional<uint32_t> graphicsFamily;
@@ -74,11 +79,11 @@ private:
 
 	void createFramebuffers();
 	void createCommandPool();
-	void createCommandBuffer();
+	void createCommandBuffers();
 
 	void createSyncObjects();
 
-	void recordCommandBuffer(uint32_t image_index);
+	void recordCommandBuffer(VkCommandBuffer _commandBuffer, uint32_t imageIndex);
 
 	VkPhysicalDevice findBestPhysicalDevice(const std::vector<VkPhysicalDevice>& devices);
 

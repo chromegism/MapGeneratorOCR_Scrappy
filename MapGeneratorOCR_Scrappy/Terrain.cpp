@@ -51,8 +51,8 @@ void genTerrain(const MapSettings& settings, Terrain& terrain) {
 	PerlinMap perlin_map(
 		float(settings.width) / float(settings.resolution),
 		float(settings.height) / float(settings.resolution),
-		{ 1.9f, 6.3f, 65.f, 128.f, 256.f, 512.f },
-		2
+		settings.perlinOctaves,
+		settings.perlinBase
 	);
 
 	terrain.width = settings.width;

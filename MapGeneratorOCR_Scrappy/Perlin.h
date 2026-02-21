@@ -36,7 +36,7 @@ class PerlinMap {
 	float base = 0;
 
 public:
-	PerlinMap(float x_multiplier, float y_multiplier, std::vector<float>, float b);
+	PerlinMap(float x_multiplier, float y_multiplier, const std::vector<float>& octaves, float b);
 
 	float index(float x, float y) const;
 };

@@ -14,7 +14,7 @@
 int perlin_test() {
 	std::srand((uint16_t)std::time(nullptr));
 
-	MapSettings settings{ 4096, 4096, 1024 };
+	MapSettings settings{ 4096, 4096, 1024, { 1.9f, 6.3f, 45.f, 108.f, 206.f, 402.f }, 2 };
 
 	ValidateSettingsErrorCode error_code = validateSettings(settings);
 	if (error_code != ValidateSettingsErrorCode::OK) {
