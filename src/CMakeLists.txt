@@ -1,0 +1,11 @@
+set(src_files
+    main.cpp
+    Map.cpp
+    MapGen.cpp
+    MapSettings.cpp
+    Perlin.cpp
+    Render.cpp
+    Terrain.cpp
+    Window.cpp
+    App.cpp
+)
