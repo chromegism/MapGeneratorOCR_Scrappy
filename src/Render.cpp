@@ -12,11 +12,12 @@
 std::vector<char> readFileCharVector(const std::string& filename) {
 	std::ifstream file(filename, std::ios::ate | std::ios::binary);
 
-    if (!file.is_open()) {
-        throw std::runtime_error("failed to open file " + filename);
+    if (!file) {
+		std::string error_string = "failed to open file ";
+        throw std::runtime_error(error_string + filename);
     }
 
-	size_t filesize = (size_t)file.tellg();
+	size_t filesize = static_cast<size_t>(file.tellg());
 	std::vector<char> buffer(filesize);
 
 	file.seekg(0);
@@ -450,7 +451,8 @@ VkShaderModule Renderer::createShaderModule(const std::vector<char>& code) {
 }
 
 void Renderer::createGraphicsPipeline() {
-	auto vertShaderCode = readFileCharVector("shaders/test.vert.spv");
+	std::string vertPath = "/shaders/test.vert.spv";
+	auto vertShaderCode = readFileCharVector(vertPath);
 	auto fragShaderCode = readFileCharVector("shaders/test.frag.spv");
 
 	DEBUG_LOG << "Read shader modules" << std::endl;
