@@ -44,11 +44,11 @@ set(SOURCES
 
 message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
 
-add_executable(Main
+add_executable(main
     ${SOURCES}
 )
 
-target_link_libraries(Main PRIVATE
+target_link_libraries(main PRIVATE
     Vulkan::Vulkan
     SDL3::SDL3
     tinygltf
@@ -62,7 +62,7 @@ target_include_directories(tinygltf
 
 if(CMAKE_BUILD_TYPE STREQUAL "Debug")
     message(STATUS "Configuring for debug build")
-    target_compile_definitions(Main PRIVATE _DEBUG)
+    target_compile_definitions(main PRIVATE _DEBUG)
 else()
     message(STATUS "Configuring for release build")
 endif()
@@ -73,8 +73,8 @@ file(GLOB_RECURSE SHADER_FILES
 add_custom_target(copy_shaders ALL
     COMMAND ${CMAKE_COMMAND} -E copy_directory
             ${CMAKE_CURRENT_SOURCE_DIR}/src/shaders
-            $<TARGET_FILE_DIR:Main>/shaders
+            $<TARGET_FILE_DIR:main>/shaders
     COMMENT "Copying shaders"
 )
 
-add_dependencies(Main copy_shaders)
+add_dependencies(main copy_shaders)
