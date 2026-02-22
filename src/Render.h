@@ -45,7 +45,7 @@ private:
 	std::vector<VkSemaphore> renderFinishedSemaphores;
 	std::vector<VkFence> inFlightFences;
 
-	uint32_t maxFramesInFlight;
+	uint32_t maxFramesInFlight = 0;
 
 	uint32_t currentFrame = 0;
 

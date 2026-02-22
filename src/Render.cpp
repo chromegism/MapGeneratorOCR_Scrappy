@@ -13,8 +13,7 @@ std::vector<char> readFileCharVector(const std::string& filename) {
 	std::ifstream file(filename, std::ios::ate | std::ios::binary);
 
     if (!file) {
-		std::string error_string = "failed to open file ";
-        throw std::runtime_error(error_string + filename);
+        throw std::runtime_error("failed to open file " + filename);
     }
 
 	size_t filesize = static_cast<size_t>(file.tellg());
@@ -451,8 +450,7 @@ VkShaderModule Renderer::createShaderModule(const std::vector<char>& code) {
 }
 
 void Renderer::createGraphicsPipeline() {
-	std::string vertPath = "/shaders/test.vert.spv";
-	auto vertShaderCode = readFileCharVector(vertPath);
+	auto vertShaderCode = readFileCharVector("shaders/test.vert.spv");
 	auto fragShaderCode = readFileCharVector("shaders/test.frag.spv");
 
 	DEBUG_LOG << "Read shader modules" << std::endl;
@@ -782,7 +780,7 @@ void Renderer::createSyncObjects() {
 }
 
 void Renderer::kill() {
-	for (size_t i = 0; i < maxFramesInFlight; i++) {
+	for (size_t i = 0; i < renderFinishedSemaphores.size(); i++) {
 		vkDestroySemaphore(device, renderFinishedSemaphores.at(i), nullptr);
 		vkDestroySemaphore(device, imageAvailableSemaphores.at(i), nullptr);
 		vkDestroyFence(device, inFlightFences.at(i), nullptr);
