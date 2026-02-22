@@ -8,6 +8,13 @@
 #include <vulkan/vulkan.h>
 #include <vulkan/vulkan_beta.h>
 #include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+
+struct UniformBufferObject {
+	glm::mat4 model;
+	glm::mat4 view;
+	glm::mat4 proj;
+};
 
 struct Vertex {
 	glm::vec2 pos;
@@ -73,12 +80,23 @@ private:
 	VkExtent2D swapChainExtent;
 	std::vector<VkImage> swapChainImages;
 	std::vector<VkImageView> swapChainImageViews;
+	VkDescriptorSetLayout descriptorSetLayout;
 	VkPipelineLayout pipelineLayout;
 	VkRenderPass renderPass;
 	VkPipeline graphicsPipeline;
 	std::vector<VkFramebuffer> swapChainFramebuffers;
 	VkCommandPool commandPool;
 	std::vector<VkCommandBuffer> commandBuffers;
+
+	VkBuffer indexBuffer;
+	VkDeviceMemory indexBufferMemory;
+
+	std::vector<VkBuffer> uniformBuffers;
+	std::vector<VkDeviceMemory> uniformBuffersMemory;
+	std::vector<void*> uniformBuffersMapped;
+
+	VkDescriptorPool descriptorPool;
+	std::vector<VkDescriptorSet> descriptorSets;
 
 	VkBuffer vertexBuffer;
 	VkDeviceMemory vertexBufferMemory;
@@ -118,17 +136,25 @@ private:
 	void createSwapChainViews();
 
 	VkShaderModule createShaderModule(const std::vector<char>& code);
+	void createDescriptorSetLayout();
 	void createGraphicsPipeline();
 	void createRenderPass();
 
 	void createFramebuffers();
 	void createCommandPool();
 	void createVertexBuffer();
+	void createUniformBuffers();
+	void createDescriptorPool();
+	void createDescriptorSets();
 	void createCommandBuffers();
+
+	void createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory);
 
 	void createSyncObjects();
 
 	void recordCommandBuffer(VkCommandBuffer _commandBuffer, uint32_t imageIndex);
+
+	void updateUniformBuffer(uint32_t currentImage);
 
 	VkPhysicalDevice findBestPhysicalDevice(const std::vector<VkPhysicalDevice>& devices);
 
