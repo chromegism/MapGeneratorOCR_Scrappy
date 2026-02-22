@@ -26,7 +26,13 @@ FetchContent_Declare(
     GIT_REPOSITORY https://github.com/syoyo/tinygltf.git
     GIT_TAG v2.9.7
 )
-FetchContent_MakeAvailable(SDL3 tinygltf)
+message(STATUS "Fetching glm from https://github.com/icaven/glm.git")
+FetchContent_Declare(
+    glm
+    GIT_REPOSITORY https://github.com/g-truc/glm.git
+    GIT_TAG 0.9.9.8
+)
+FetchContent_MakeAvailable(SDL3 tinygltf glm)
 target_compile_definitions(tinygltf INTERFACE
     JSON_USE_IMPLICIT_CONVERSIONS=0
 )
@@ -52,6 +58,7 @@ target_link_libraries(main PRIVATE
     Vulkan::Vulkan
     SDL3::SDL3
     tinygltf
+    glm::glm
 )
 
 target_include_directories(tinygltf
