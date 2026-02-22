@@ -4,7 +4,34 @@
 
 #include "App.h"
 
+void Camera::forward(float by) {
+	const glm::vec3 mov = orientation * glm::vec3(0, 0, -1);
+	pos += mov;
+}
+void Camera::backward(float by) {
+	const glm::vec3 mov = orientation * glm::vec3(0, 0, 1);
+	pos += mov;
+}
+void Camera::left(float by) {
+	const glm::vec3 mov = orientation * glm::vec3(-1, 0, 0);
+	pos += mov;
+}
+void Camera::right(float by) {
+	const glm::vec3 mov = orientation * glm::vec3(1, 0, 0);
+	pos += mov;
+}
+void Camera::up(float by) {
+	const glm::vec3 mov = orientation * glm::vec3(0, 1, 0);
+	pos += mov;
+}
+void Camera::down(float by) {
+	const glm::vec3 mov = orientation * glm::vec3(0, -1, 0);
+	pos += mov;
+}
+
 void Application::init() {
+	camera.orientation = glm::quatLookAt(glm::vec3(1, 0, 0) , glm::vec3(0, 1, 0));
+
 	window.init();
 	renderer.init(window.getHandle());
 }
@@ -14,7 +41,6 @@ void Application::run() {
 
 	uint32_t frames = 0;
 	while (running) {
-		pollEvents();
 		update();
 		renderer.drawFrame();
 		frames++;
@@ -27,10 +53,37 @@ void Application::pollEvents() {
 	SDL_Event event;
 	while (SDL_PollEvent(&event)) {
 		switch (event.type) {
-			case SDL_EVENT_QUIT: running = false; return;
+			case SDL_EVENT_QUIT:     running = false; return;
+			case SDL_EVENT_KEY_DOWN: keyState[event.key.scancode] = true; continue;
+			case SDL_EVENT_KEY_UP:   keyState[event.key.scancode] = false; continue;
 			default: return;
 		}
 	}
 }
 
-void Application::update() {}
+void Application::updateCamera() {
+	if (keyState[SDL_SCANCODE_W]) {
+		camera.forward(1);
+	}
+	if (keyState[SDL_SCANCODE_S]) {
+		camera.backward(1);
+	}
+	if (keyState[SDL_SCANCODE_A]) {
+		camera.left(1);
+	}
+	if (keyState[SDL_SCANCODE_D]) {
+		camera.right(1);
+	}
+	if (keyState[SDL_SCANCODE_C]) {
+		camera.down(1);
+	}
+	if (keyState[SDL_SCANCODE_SPACE]) {
+		camera.up(1);
+	}
+	std::cout << camera.pos.x << "\n";
+}
+
+void Application::update() {
+	pollEvents();
+	updateCamera();
+}

@@ -8,7 +8,7 @@
 void Window::init() {
 	if (SDL_InitSubSystem(SDL_INIT_VIDEO) == false) {
 		throw std::runtime_error("Error initialising SDL3: " + (std::string)SDL_GetError());
-	}
+	} // Automatically initialises SDL_INIT_EVENTS
 
 	handle = SDL_CreateWindow("Erosion test", 1280, 720, SDL_WINDOW_VULKAN);
 	if (!handle) {
