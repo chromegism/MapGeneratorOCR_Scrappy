@@ -34,6 +34,8 @@ void Application::init() {
 
 	window.init();
 	renderer.init(window.getHandle());
+
+	lastFrameTime = Clock::now();
 }
 
 void Application::run() {
@@ -80,10 +82,17 @@ void Application::updateCamera() {
 	if (keyState[SDL_SCANCODE_SPACE]) {
 		camera.up(1);
 	}
-	std::cout << camera.pos.x << "\n";
+}
+
+void Application::updateDeltaTime() {
+	Clock::time_point thisFrameTime = Clock::now();
+	std::chrono::duration<double> delta = thisFrameTime - lastFrameTime;
+	deltaTime = delta.count();
+	lastFrameTime = thisFrameTime;
 }
 
 void Application::update() {
+	updateDeltaTime();
 	pollEvents();
 	updateCamera();
 }
