@@ -149,6 +149,7 @@ private:
 	void createFramebuffers();
 	void createCommandPool();
 	void createVertexBuffer(const TerrainGenerator& generator);
+	void updateVertexBuffer(const TerrainGenerator& generator);
 	void createIndexBuffer(const TerrainGenerator& generator);
 	void createUniformBuffers();
 	void createDescriptorPool();

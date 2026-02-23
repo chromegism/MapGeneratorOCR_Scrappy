@@ -954,37 +954,62 @@ void Renderer::createVertexBuffer(const TerrainGenerator& generator) {
 	mapDetailsData.displaySize = glm::vec2(4, 4);
 
 	uint32_t bufferLength = generator.details.width * generator.details.height;
+	uint32_t bufferSize = sizeof(float) * bufferLength;
 
-	VkBufferCreateInfo bufferInfo{};
-	bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-	bufferInfo.size = sizeof(float) * bufferLength;
-	bufferInfo.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
-	bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-
-	if (vkCreateBuffer(device, &bufferInfo, nullptr, &vertexBuffer) != VK_SUCCESS) {
-		throw std::runtime_error("failed to create vertex buffer!");
-	}
-
-	VkMemoryRequirements memRequirements;
-	vkGetBufferMemoryRequirements(device, vertexBuffer, &memRequirements);
-
-	VkMemoryAllocateInfo allocInfo{};
-	allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-	allocInfo.allocationSize = memRequirements.size;
-	allocInfo.memoryTypeIndex = findMemoryType(memRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-
-	if (vkAllocateMemory(device, &allocInfo, nullptr, &vertexBufferMemory) != VK_SUCCESS) {
-		throw std::runtime_error("failed to allocate vertex buffer memory!");
-	}
-
-	vkBindBufferMemory(device, vertexBuffer, vertexBufferMemory, 0);
+	VkBuffer stagingBuffer;
+	VkDeviceMemory stagingBufferMemory;
+	createBuffer(
+		bufferSize,
+		VK_BUFFER_USAGE_TRANSFER_SRC_BIT, 
+		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+		stagingBuffer, stagingBufferMemory
+	);
 
 	void* data;
-	vkMapMemory(device, vertexBufferMemory, 0, bufferInfo.size, 0, &data);
+	vkMapMemory(device, stagingBufferMemory, 0, sizeof(float) * bufferLength, 0, &data);
 	generator.genTerrainInto(static_cast<float*>(data));
-	vkUnmapMemory(device, vertexBufferMemory);
+	vkUnmapMemory(device, stagingBufferMemory);
+
+	createBuffer(
+		bufferSize,
+		VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+		vertexBuffer, vertexBufferMemory
+	);
+
+	copyBuffer(stagingBuffer, vertexBuffer, bufferSize);
+
+	vkDestroyBuffer(device, stagingBuffer, nullptr);
+	vkFreeMemory(device, stagingBufferMemory, nullptr);
 
 	DEBUG_LOG << "Successfully created vertex buffer" << std::endl;
+}
+
+void Renderer::updateVertexBuffer(const TerrainGenerator& generator) {
+	mapDetailsData.bufferSize = glm::ivec2(generator.details.width, generator.details.height);
+	mapDetailsData.displaySize = glm::vec2(4, 4);
+
+	uint32_t bufferLength = generator.details.width * generator.details.height;
+	uint32_t bufferSize = sizeof(float) * bufferLength;
+
+	VkBuffer stagingBuffer;
+	VkDeviceMemory stagingBufferMemory;
+	createBuffer(
+		bufferSize,
+		VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+		stagingBuffer, stagingBufferMemory
+	);
+
+	void* data;
+	vkMapMemory(device, stagingBufferMemory, 0, sizeof(float) * bufferLength, 0, &data);
+	generator.genTerrainInto(static_cast<float*>(data));
+	vkUnmapMemory(device, stagingBufferMemory);
+
+	copyBuffer(stagingBuffer, vertexBuffer, bufferSize);
+
+	vkDestroyBuffer(device, stagingBuffer, nullptr);
+	vkFreeMemory(device, stagingBufferMemory, nullptr);
 }
 
 void Renderer::createIndexBuffer(const TerrainGenerator& generator) {
@@ -1413,5 +1438,5 @@ void Renderer::waitIdle() {
 }
 
 void Renderer::updateTerrain(const TerrainGenerator& generator) {
-	createVertexBuffer(generator);
+	updateVertexBuffer(generator);
 }

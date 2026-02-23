@@ -89,8 +89,6 @@ void TerrainGenerator::genTriangleIndicesInto(uint32_t* buffer) const {
 }
 
 TerrainData TerrainGenerator::genTerrain() const {
-	std::cout << "Generating terrain" << std::endl;
-
 	PerlinMap perlin_map(
 		float(details.width) / float(details.resolution),
 		float(details.height) / float(details.resolution),
@@ -109,8 +107,6 @@ TerrainData TerrainGenerator::genTerrain() const {
 }
 
 void TerrainGenerator::genTerrainInto(float* buffer) const {
-    std::cout << "Generating terrain" << std::endl;
-
     PerlinMap perlin_map(
         float(details.width) / float(details.resolution),
         float(details.height) / float(details.resolution),
