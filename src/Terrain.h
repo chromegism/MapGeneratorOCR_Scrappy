@@ -23,7 +23,7 @@ public:
 	std::vector<uint32_t> genTriangleIndices() const;
 	void genTriangleIndicesInto(uint32_t* buffer) const;
 
-	inline uint32_t calcIndicesLength() const;
+	uint32_t calcIndicesLength() const;
 
 	void updateDetails(const MapSettings& settings) {
 		details.width = settings.width; details.height = settings.height; details.resolution = settings.resolution;

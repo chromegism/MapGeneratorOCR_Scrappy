@@ -117,6 +117,6 @@ void TerrainGenerator::genTerrainInto(float* buffer) const {
     genTerrainHeightsInto(perlin_map, buffer);
 }
 
-inline uint32_t TerrainGenerator::calcIndicesLength() const {
+uint32_t TerrainGenerator::calcIndicesLength() const {
     return 1 + (2 * details.width - 1) * (details.height - 1);
 }
