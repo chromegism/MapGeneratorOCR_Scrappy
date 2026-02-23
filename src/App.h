@@ -7,6 +7,9 @@
 #include "Render.h"
 #include "Window.h"
 
+#include "Terrain.h"
+#include "MapSettings.h"
+
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/glm.hpp>
 #include <glm/gtx/quaternion.hpp>
@@ -38,10 +41,15 @@ private:
 	Window window;
 	Renderer renderer;
 	Camera camera;
+	MapSettings settings{ 1000, 1000, 1000, { 1.9f, 3.3f, 6.4f, 9.2f, 12.6f }, 2 };
+	TerrainGenerator terrainGenerator;
 	std::map<SDL_Scancode, bool> keyState;
 
+	const float mapUpdateCooldown = 0.2; // In seconds
+	float timeSinceMapUpdate = 0;
+
 	Clock::time_point lastFrameTime;
-	double deltaTime = 0;
+	float deltaTime = 0;
 
 	void updateCamera();
 	void pollEvents();

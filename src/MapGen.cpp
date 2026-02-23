@@ -4,7 +4,8 @@
 
 Map genMap(const MapSettings& settings) {
 	Map map;
-	genTerrain(settings, map.terrain);
+	TerrainGenerator terrainGenerator;
+	map.terrain = terrainGenerator.genTerrain(settings);
 
 	return map;
 }

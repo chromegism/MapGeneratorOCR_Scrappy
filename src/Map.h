@@ -3,5 +3,5 @@
 #include "Terrain.h"
 
 struct Map {
-	Terrain terrain;
+	TerrainData terrain;
 };

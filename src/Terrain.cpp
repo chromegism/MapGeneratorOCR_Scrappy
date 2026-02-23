@@ -1,11 +1,12 @@
 #include <iostream>
 #include <thread>
+#include <chrono>
 
 #include "MapSettings.h"
 #include "Perlin.h"
 #include "Terrain.h"
 
-std::vector<float> genTerrainHeights(const MapSettings& settings, const PerlinMap& perlin) {
+std::vector<float> TerrainGenerator::genTerrainHeights(const MapSettings& settings, const PerlinMap& perlin) {
     std::vector<float> heights(settings.width * settings.height);
 
     const float invW = 1.0f / settings.width;
@@ -45,7 +46,42 @@ std::vector<float> genTerrainHeights(const MapSettings& settings, const PerlinMa
     return heights;
 }
 
-void genTerrain(const MapSettings& settings, Terrain& terrain) {
+std::vector<uint32_t> TerrainGenerator::genTriangleIndices(const MapSettings& settings) {
+    const uint32_t width = settings.width, height = settings.height;
+    const uint32_t length = 1 + (2 * width - 1) * (height - 1);
+
+    std::vector<uint32_t> indices;
+    indices.resize(length);
+
+    const uint32_t stride = 2 * width - 1;
+
+    uint32_t i = 0;
+
+    for (uint32_t row = 0; row < length / stride; ++row)
+    {
+        const bool increasing = (row & 1) == 0;
+        const uint32_t rowBase = row * width;
+
+        for (uint32_t col = 0; col < stride; ++col, ++i)
+        {
+            uint32_t base = col >> 1;          // col / 2
+            uint32_t upper = (col & 1) * width;
+
+            uint32_t n;
+
+            if (increasing)
+                n = base + upper;
+            else
+                n = (width - base - 1) + upper;
+
+            indices.at(i) = n + rowBase;
+        }
+    }
+    
+    return indices;
+}
+
+TerrainData TerrainGenerator::genTerrain(const MapSettings& settings) {
 	std::cout << "Generating terrain" << std::endl;
 
 	PerlinMap perlin_map(
@@ -55,7 +91,12 @@ void genTerrain(const MapSettings& settings, Terrain& terrain) {
 		settings.perlinBase
 	);
 
+    TerrainData terrain{};
+
 	terrain.width = settings.width;
 	terrain.height = settings.height;
 	terrain.heights = genTerrainHeights(settings, perlin_map);
+    terrain.triangleIndices = genTriangleIndices(settings);
+
+    return terrain;
 }

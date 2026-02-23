@@ -1,6 +1,7 @@
 #pragma once
 
 #include <vector>
+#include <random>
 
 struct Arrow2D {
 	float x = 0.f;

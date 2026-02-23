@@ -8,6 +8,10 @@
 
 constexpr float PI = 3.14159265358f;
 
+std::random_device rd;
+std::mt19937 gen{ rd() };
+std::uniform_real_distribution<float> dist{ -PI, PI };
+
 inline float clamp(float v, float lo, float hi) noexcept {
 	return v < lo ? lo : (v > hi ? hi : v);
 }
@@ -42,7 +46,7 @@ PerlinMap::PerlinMap(float xm, float ym, const std::vector<float> &octaves, floa
 
 
 Arrow2D Arrow2D::random() {
-	const float angle = float(std::rand()) / RAND_MAX * 2.f * PI;
+	const float angle = dist(gen);
 	return { std::cos(angle), std::sin(angle) };
 }
 
@@ -52,7 +56,7 @@ inline float Arrow2D::magnitude() const {
 
 Arrow2D Arrow2D::normalise() const {
 	float mag = magnitude();
-	return { x * mag, y * mag };
+	return { x / mag, y / mag };
 }
 
 inline float Arrow2D_dot(const Arrow2D& A, const Arrow2D& B) noexcept {
