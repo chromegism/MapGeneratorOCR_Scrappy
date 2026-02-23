@@ -6,11 +6,9 @@
 #include "Perlin.h"
 #include "Terrain.h"
 
-std::vector<float> TerrainGenerator::genTerrainHeights(const MapSettings& settings, const PerlinMap& perlin) {
-    std::vector<float> heights(settings.width * settings.height);
-
-    const float invW = 1.0f / settings.width;
-    const float invH = 1.0f / settings.height;
+void TerrainGenerator::genTerrainHeightsInto(const PerlinMap& perlin, float* buffer) const {
+    const float invW = 1.0f / details.width;
+    const float invH = 1.0f / details.height;
 
     unsigned int threadCount = std::thread::hardware_concurrency();
     if (threadCount == 0) threadCount = 4;
@@ -18,12 +16,12 @@ std::vector<float> TerrainGenerator::genTerrainHeights(const MapSettings& settin
     std::vector<std::thread> threads;
     threads.reserve(threadCount);
 
-    unsigned int rowsPerThread = settings.height / threadCount;
+    unsigned int rowsPerThread = details.height / threadCount;
 
     for (unsigned int t = 0; t < threadCount; t++) {
         unsigned int startRow = t * rowsPerThread;
         unsigned int endRow = (t == threadCount - 1)
-            ? settings.height
+            ? details.height
             : startRow + rowsPerThread;
 
         threads.emplace_back([&, startRow, endRow]() {
@@ -31,8 +29,8 @@ std::vector<float> TerrainGenerator::genTerrainHeights(const MapSettings& settin
             for (unsigned int y = startRow; y < endRow; y++) {
                 float fy = y * invH;
 
-                for (int x = 0; x < settings.width; x++) {
-                    heights[x + y * settings.width] =
+                for (unsigned x = 0; x < details.width; x++) {
+                    buffer[x + y * details.width] =
                         perlin.index(x * invW, fy);
                 }
             }
@@ -42,61 +40,87 @@ std::vector<float> TerrainGenerator::genTerrainHeights(const MapSettings& settin
 
     for (auto& th : threads)
         th.join();
-
-    return heights;
 }
 
-std::vector<uint32_t> TerrainGenerator::genTriangleIndices(const MapSettings& settings) {
-    const uint32_t width = settings.width, height = settings.height;
-    const uint32_t length = 1 + (2 * width - 1) * (height - 1);
+std::vector<float> TerrainGenerator::genTerrainHeights(const PerlinMap& perlin) const {
+    std::vector<float> buffer(details.width * details.height);
+    genTerrainHeightsInto(perlin, buffer.data());
+    return buffer;
+}
+
+std::vector<uint32_t> TerrainGenerator::genTriangleIndices() const {
+    const uint32_t length = calcIndicesLength();
 
     std::vector<uint32_t> indices;
     indices.resize(length);
 
-    const uint32_t stride = 2 * width - 1;
+    genTriangleIndicesInto(indices.data());
+
+    return indices;
+}
+
+void TerrainGenerator::genTriangleIndicesInto(uint32_t* buffer) const {
+    const uint32_t length = calcIndicesLength();
+
+    const uint32_t stride = 2 * details.width - 1;
 
     uint32_t i = 0;
 
     for (uint32_t row = 0; row < length / stride; ++row)
     {
         const bool increasing = (row & 1) == 0;
-        const uint32_t rowBase = row * width;
+        const uint32_t rowBase = row * details.width;
 
         for (uint32_t col = 0; col < stride; ++col, ++i)
         {
             uint32_t base = col >> 1;          // col / 2
-            uint32_t upper = (col & 1) * width;
+            uint32_t upper = (col & 1) * details.width;
 
             uint32_t n;
 
             if (increasing)
                 n = base + upper;
             else
-                n = (width - base - 1) + upper;
+                n = (details.width - base - 1) + upper;
 
-            indices.at(i) = n + rowBase;
+            buffer[i] = n + rowBase;
         }
     }
-    
-    return indices;
 }
 
-TerrainData TerrainGenerator::genTerrain(const MapSettings& settings) {
+TerrainData TerrainGenerator::genTerrain() const {
 	std::cout << "Generating terrain" << std::endl;
 
 	PerlinMap perlin_map(
-		float(settings.width) / float(settings.resolution),
-		float(settings.height) / float(settings.resolution),
-		settings.perlinOctaves,
-		settings.perlinBase
+		float(details.width) / float(details.resolution),
+		float(details.height) / float(details.resolution),
+        details.perlinOctaves,
+        details.base
 	);
 
     TerrainData terrain{};
 
-	terrain.width = settings.width;
-	terrain.height = settings.height;
-	terrain.heights = genTerrainHeights(settings, perlin_map);
-    terrain.triangleIndices = genTriangleIndices(settings);
+	terrain.width = details.width;
+	terrain.height = details.height;
+	terrain.heights = genTerrainHeights(perlin_map);
+    terrain.triangleIndices = genTriangleIndices();
 
     return terrain;
+}
+
+void TerrainGenerator::genTerrainInto(float* buffer) const {
+    std::cout << "Generating terrain" << std::endl;
+
+    PerlinMap perlin_map(
+        float(details.width) / float(details.resolution),
+        float(details.height) / float(details.resolution),
+        details.perlinOctaves,
+        details.base
+    );
+
+    genTerrainHeightsInto(perlin_map, buffer);
+}
+
+inline uint32_t TerrainGenerator::calcIndicesLength() const {
+    return 1 + (2 * details.width - 1) * (details.height - 1);
 }

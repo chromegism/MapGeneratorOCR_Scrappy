@@ -33,8 +33,8 @@ void Application::init() {
 	camera.orientation = glm::quatLookAt(glm::vec3(1, 0, 0) , glm::vec3(0, 1, 0));
 
 	window.init();
-	TerrainData terrain = terrainGenerator.genTerrain(settings);
-	renderer.init(window.getHandle(), std::move(terrain));
+	terrainGenerator.updateDetails(settings);
+	renderer.init(window.getHandle(), terrainGenerator);
 
 	lastFrameTime = Clock::now();
 }
@@ -101,8 +101,7 @@ void Application::update() {
 	if (keyState[SDL_SCANCODE_RETURN]) {
 		if (timeSinceMapUpdate >= mapUpdateCooldown) {
 			std::cout << "Regenerating" << std::endl;
-			TerrainData terrain = terrainGenerator.genTerrain(settings);
-			renderer.updateTerrain(std::move(terrain));
+			renderer.updateTerrain(terrainGenerator);
 			timeSinceMapUpdate = 0;
 		}
 	}

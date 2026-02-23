@@ -52,14 +52,14 @@ struct Vertex {
 
 class Renderer {
 public:
-	void init(SDL_Window* window, TerrainData&& initialData);
+	void init(SDL_Window* window, const TerrainGenerator& generator);
 
 	~Renderer();
 
 	void drawFrame();
 	void waitIdle();
 
-	void updateTerrain(TerrainData&& data);
+	void updateTerrain(const TerrainGenerator& generator);
 
 	void kill();
 
@@ -111,7 +111,7 @@ private:
 
 	uint32_t currentFrame = 0;
 
-	uint32_t terrainDataLength = 0;
+	uint32_t terrainIndicesLength = 0;
 
 	MapDetailsObject mapDetailsData;
 
@@ -148,8 +148,8 @@ private:
 
 	void createFramebuffers();
 	void createCommandPool();
-	void createVertexBuffer(const std::vector<glm::float32>& heights);
-	void createIndexBuffer(const std::vector<uint32_t>& indices);
+	void createVertexBuffer(const TerrainGenerator& generator);
+	void createIndexBuffer(const TerrainGenerator& generator);
 	void createUniformBuffers();
 	void createDescriptorPool();
 	void createDescriptorSets();

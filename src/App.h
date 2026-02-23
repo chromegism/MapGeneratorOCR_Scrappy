@@ -45,8 +45,8 @@ private:
 	TerrainGenerator terrainGenerator;
 	std::map<SDL_Scancode, bool> keyState;
 
-	const float mapUpdateCooldown = 0.2; // In seconds
-	float timeSinceMapUpdate = 0;
+	const float mapUpdateCooldown = 0.2f; // In seconds
+	float timeSinceMapUpdate = 0.f;
 
 	Clock::time_point lastFrameTime;
 	float deltaTime = 0;

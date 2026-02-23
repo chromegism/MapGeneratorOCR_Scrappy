@@ -28,7 +28,7 @@ std::vector<char> readFileCharVector(const std::string& filename) {
 	return buffer;
 }
 
-void Renderer::init(SDL_Window* window, TerrainData&& initialData) {
+void Renderer::init(SDL_Window* window, const TerrainGenerator& generator) {
 	createInstance();
 	createSurface(window);
 	pickPhysicalDevice();
@@ -40,14 +40,6 @@ void Renderer::init(SDL_Window* window, TerrainData&& initialData) {
 		std::cout << "Selected device name: " << props.deviceName << ", id: " << props.deviceID << ", api version: " << props.apiVersion << std::endl;
 	}
 
-	terrainDataLength = static_cast<uint32_t>(initialData.triangleIndices.size());
-	std::cout << initialData.width << '\n';
-	std::cout << initialData.height << '\n';
-	std::cout << initialData.triangleIndices.size() << '\n';
-	std::cout << initialData.heights.size() << '\n';
-	std::cout << '\n';
-	std::cout << std::ranges::max(initialData.heights) << " -> " << std::ranges::min(initialData.heights) << '\n';
-
 	createLogicalDevice();
 	createSwapChain(window);
 	createSwapChainViews();
@@ -56,10 +48,8 @@ void Renderer::init(SDL_Window* window, TerrainData&& initialData) {
 	createCommandPool();
 	createDepthResources();
 	createFramebuffers();
-	mapDetailsData.bufferSize = glm::ivec2(initialData.width, initialData.height);
-	mapDetailsData.displaySize = glm::vec2(4, 4);
-	createVertexBuffer(initialData.heights);
-	createIndexBuffer(initialData.triangleIndices);
+	createVertexBuffer(generator);
+	createIndexBuffer(generator);
 	createUniformBuffers();
 	createDescriptorPool();
 	createDescriptorSets();
@@ -959,10 +949,15 @@ void Renderer::createDepthResources() {
 	transitionImageLayout(depthImage, depthFormat, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
 }
 
-void Renderer::createVertexBuffer(const std::vector<glm::float32>& heights) {
+void Renderer::createVertexBuffer(const TerrainGenerator& generator) {
+	mapDetailsData.bufferSize = glm::ivec2(generator.details.width, generator.details.height);
+	mapDetailsData.displaySize = glm::vec2(4, 4);
+
+	uint32_t bufferLength = generator.details.width * generator.details.height;
+
 	VkBufferCreateInfo bufferInfo{};
 	bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-	bufferInfo.size = sizeof(heights[0]) * heights.size();
+	bufferInfo.size = sizeof(float) * bufferLength;
 	bufferInfo.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
 	bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
@@ -986,14 +981,15 @@ void Renderer::createVertexBuffer(const std::vector<glm::float32>& heights) {
 
 	void* data;
 	vkMapMemory(device, vertexBufferMemory, 0, bufferInfo.size, 0, &data);
-	memcpy(data, heights.data(), (size_t)bufferInfo.size);
+	generator.genTerrainInto(static_cast<float*>(data));
 	vkUnmapMemory(device, vertexBufferMemory);
 
 	DEBUG_LOG << "Successfully created vertex buffer" << std::endl;
 }
 
-void Renderer::createIndexBuffer(const std::vector<uint32_t>& indices) {
-	VkDeviceSize bufferSize = sizeof(indices[0]) * indices.size();
+void Renderer::createIndexBuffer(const TerrainGenerator& generator) {
+	terrainIndicesLength = generator.calcIndicesLength();
+	VkDeviceSize bufferSize = sizeof(uint32_t) * terrainIndicesLength;
 
 	VkBuffer stagingBuffer;
 	VkDeviceMemory stagingBufferMemory;
@@ -1001,7 +997,7 @@ void Renderer::createIndexBuffer(const std::vector<uint32_t>& indices) {
 
 	void* data;
 	vkMapMemory(device, stagingBufferMemory, 0, bufferSize, 0, &data);
-	memcpy(data, indices.data(), (size_t)bufferSize);
+	generator.genTriangleIndicesInto(static_cast<uint32_t*>(data));
 	vkUnmapMemory(device, stagingBufferMemory);
 
 	createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, indexBuffer, indexBufferMemory);
@@ -1242,7 +1238,7 @@ void Renderer::recordCommandBuffer(VkCommandBuffer _commandBuffer, uint32_t imag
 
 		vkCmdBindDescriptorSets(_commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSets[currentFrame], 0, nullptr);
 
-		vkCmdDrawIndexed(_commandBuffer, static_cast<uint32_t>(terrainDataLength), 1, 0, 0, 0);
+		vkCmdDrawIndexed(_commandBuffer, static_cast<uint32_t>(terrainIndicesLength), 1, 0, 0, 0);
 	}
 	vkCmdEndRenderPass(_commandBuffer);
 
@@ -1416,6 +1412,6 @@ void Renderer::waitIdle() {
 	vkDeviceWaitIdle(device);
 }
 
-void Renderer::updateTerrain(TerrainData&& data) {
-	createVertexBuffer(data.heights);
+void Renderer::updateTerrain(const TerrainGenerator& generator) {
+	createVertexBuffer(generator);
 }
