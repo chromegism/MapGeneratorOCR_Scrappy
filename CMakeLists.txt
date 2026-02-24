@@ -67,7 +67,7 @@ target_include_directories(tinygltf
         $<INSTALL_INTERFACE:include>
 )
 
-set(CMAKE_CXX_FLAGS_RELEASE "-O3")
+set(CMAKE_CXX_FLAGS_RELEASE "-Ofast")
 if(CMAKE_BUILD_TYPE STREQUAL "Debug")
     message(STATUS "Configuring for debug build")
     target_compile_definitions(main PRIVATE _DEBUG)
