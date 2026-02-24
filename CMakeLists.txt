@@ -67,6 +67,10 @@ target_include_directories(tinygltf
         $<INSTALL_INTERFACE:include>
 )
 
+if(NOT CMAKE_BUILD_TYPE)
+  set(CMAKE_BUILD_TYPE Release)
+endif()
+
 set(CMAKE_CXX_FLAGS_RELEASE "-O3")
 if(CMAKE_BUILD_TYPE STREQUAL "Debug")
     message(STATUS "Configuring for debug build")
