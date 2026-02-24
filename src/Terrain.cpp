@@ -6,7 +6,7 @@
 #include "Perlin.h"
 #include "Terrain.h"
 
-void TerrainGenerator::genTerrainHeightsInto(const PerlinMap& perlin, float* buffer) const {
+void TerrainGenerator::genTerrainHeightsInto(float* buffer) const {
     const float invW = 1.0f / details.width;
     const float invH = 1.0f / details.height;
 
@@ -42,9 +42,9 @@ void TerrainGenerator::genTerrainHeightsInto(const PerlinMap& perlin, float* buf
         th.join();
 }
 
-std::vector<float> TerrainGenerator::genTerrainHeights(const PerlinMap& perlin) const {
+std::vector<float> TerrainGenerator::genTerrainHeights() const {
     std::vector<float> buffer(details.width * details.height);
-    genTerrainHeightsInto(perlin, buffer.data());
+    genTerrainHeightsInto(buffer.data());
     return buffer;
 }
 
@@ -88,33 +88,39 @@ void TerrainGenerator::genTriangleIndicesInto(uint32_t* buffer) const {
     }
 }
 
-TerrainData TerrainGenerator::genTerrain() const {
-	PerlinMap perlin_map(
-		float(details.width) / float(details.resolution),
-		float(details.height) / float(details.resolution),
-        details.perlinOctaves,
-        details.base
-	);
-
+TerrainData TerrainGenerator::genTerrain() {
     TerrainData terrain{};
+
+    if (!initialisedPerlin) {
+        perlin = PerlinMap(
+            float(details.width) / float(details.resolution),
+            float(details.height) / float(details.resolution),
+            details.perlinOctaves, details.base);
+        initialisedPerlin = true;
+    }
+
+    perlin.regenerate();
 
 	terrain.width = details.width;
 	terrain.height = details.height;
-	terrain.heights = genTerrainHeights(perlin_map);
+	terrain.heights = genTerrainHeights();
     terrain.triangleIndices = genTriangleIndices();
 
     return terrain;
 }
 
-void TerrainGenerator::genTerrainInto(float* buffer) const {
-    PerlinMap perlin_map(
-        float(details.width) / float(details.resolution),
-        float(details.height) / float(details.resolution),
-        details.perlinOctaves,
-        details.base
-    );
+void TerrainGenerator::genTerrainInto(float* buffer) {
+    if (!initialisedPerlin) {
+        perlin = PerlinMap(
+            float(details.width) / float(details.resolution),
+            float(details.height) / float(details.resolution),
+            details.perlinOctaves, details.base);
+        initialisedPerlin = true;
+    }
 
-    genTerrainHeightsInto(perlin_map, buffer);
+    perlin.regenerate();
+
+    genTerrainHeightsInto(buffer);
 }
 
 uint32_t TerrainGenerator::calcIndicesLength() const {

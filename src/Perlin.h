@@ -31,13 +31,19 @@ class PerlinMap {
 
 	std::vector<PerlinLayer> layers;
 
-	float x_multiplier = 0;
-	float y_multiplier = 0;
+	struct {
+		float x_multiplier = 0;
+		float y_multiplier = 0;
 
-	float base = 0;
+		float base = 0;
+
+		std::vector<float> octaves;
+	} details;
 
 public:
-	PerlinMap(float x_multiplier, float y_multiplier, const std::vector<float>& octaves, float b);
+	PerlinMap(float x_multiplier, float y_multiplier, const std::vector<float>& octs, float b);
+	PerlinMap();
+	void regenerate();
 
 	float index(float x, float y) const;
 };

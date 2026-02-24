@@ -52,14 +52,14 @@ struct Vertex {
 
 class Renderer {
 public:
-	void init(SDL_Window* window, const TerrainGenerator& generator);
+	void init(SDL_Window* window, TerrainGenerator& generator);
 
 	~Renderer();
 
 	void drawFrame();
 	void waitIdle();
 
-	void updateTerrain(const TerrainGenerator& generator);
+	void updateTerrain(TerrainGenerator& generator);
 
 	void kill();
 
@@ -148,9 +148,9 @@ private:
 
 	void createFramebuffers();
 	void createCommandPool();
-	void createVertexBuffer(const TerrainGenerator& generator);
-	void updateVertexBuffer(const TerrainGenerator& generator);
-	void createIndexBuffer(const TerrainGenerator& generator);
+	void createVertexBuffer(TerrainGenerator& generator);
+	void updateVertexBuffer(TerrainGenerator& generator);
+	void createIndexBuffer(TerrainGenerator& generator);
 	void createUniformBuffers();
 	void createDescriptorPool();
 	void createDescriptorSets();

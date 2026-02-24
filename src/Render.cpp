@@ -28,7 +28,7 @@ std::vector<char> readFileCharVector(const std::string& filename) {
 	return buffer;
 }
 
-void Renderer::init(SDL_Window* window, const TerrainGenerator& generator) {
+void Renderer::init(SDL_Window* window, TerrainGenerator& generator) {
 	createInstance();
 	createSurface(window);
 	pickPhysicalDevice();
@@ -500,7 +500,6 @@ void Renderer::createGraphicsPipeline() {
 
 	DEBUG_LOG << "Created shader modules" << std::endl;
 
-
 	VkPipelineShaderStageCreateInfo vertShaderStageInfo{};
 	vertShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
 	vertShaderStageInfo.stage = VK_SHADER_STAGE_VERTEX_BIT;
@@ -949,7 +948,7 @@ void Renderer::createDepthResources() {
 	transitionImageLayout(depthImage, depthFormat, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
 }
 
-void Renderer::createVertexBuffer(const TerrainGenerator& generator) {
+void Renderer::createVertexBuffer(TerrainGenerator& generator) {
 	mapDetailsData.bufferSize = glm::ivec2(generator.details.width, generator.details.height);
 	mapDetailsData.displaySize = glm::vec2(4, 4);
 
@@ -985,7 +984,7 @@ void Renderer::createVertexBuffer(const TerrainGenerator& generator) {
 	DEBUG_LOG << "Successfully created vertex buffer" << std::endl;
 }
 
-void Renderer::updateVertexBuffer(const TerrainGenerator& generator) {
+void Renderer::updateVertexBuffer(TerrainGenerator& generator) {
 	mapDetailsData.bufferSize = glm::ivec2(generator.details.width, generator.details.height);
 	mapDetailsData.displaySize = glm::vec2(4, 4);
 
@@ -1012,7 +1011,7 @@ void Renderer::updateVertexBuffer(const TerrainGenerator& generator) {
 	vkFreeMemory(device, stagingBufferMemory, nullptr);
 }
 
-void Renderer::createIndexBuffer(const TerrainGenerator& generator) {
+void Renderer::createIndexBuffer(TerrainGenerator& generator) {
 	terrainIndicesLength = generator.calcIndicesLength();
 	VkDeviceSize bufferSize = sizeof(uint32_t) * terrainIndicesLength;
 
@@ -1110,6 +1109,8 @@ void Renderer::createUniformBuffers() {
 	uniformBuffers.resize(maxFramesInFlight);
 	uniformBuffersMemory.resize(maxFramesInFlight);
 	uniformBuffersMapped.resize(maxFramesInFlight);
+
+	
 
 	for (size_t i = 0; i < maxFramesInFlight; i++) {
 		createBuffer(totalSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
@@ -1437,6 +1438,6 @@ void Renderer::waitIdle() {
 	vkDeviceWaitIdle(device);
 }
 
-void Renderer::updateTerrain(const TerrainGenerator& generator) {
+void Renderer::updateTerrain(TerrainGenerator& generator) {
 	updateVertexBuffer(generator);
 }

@@ -33,14 +33,30 @@ PerlinMap::PerlinLayer::PerlinLayer(float x_multiplier, float y_multiplier, floa
 	}
 }
 
-PerlinMap::PerlinMap(float xm, float ym, const std::vector<float> &octaves, float b) {
-	x_multiplier = xm;
-	y_multiplier = ym;
+PerlinMap::PerlinMap(float xm, float ym, const std::vector<float> &octs, float b) {
+	details.x_multiplier = xm;
+	details.y_multiplier = ym;
 
-	base = b;
+	details.base = b;
 
-	for (float octave : octaves) {
-		layers.push_back( PerlinLayer(xm, ym, octave) );
+	details.octaves = octs;
+
+	regenerate();
+}
+
+PerlinMap::PerlinMap() {
+	details.x_multiplier = 0;
+	details.y_multiplier = 0;
+
+	details.base = 0;
+
+	details.octaves = {};
+}
+
+void PerlinMap::regenerate() {
+	layers.clear();
+	for (float octave : details.octaves) {
+		layers.push_back(PerlinLayer(details.x_multiplier, details.y_multiplier, octave));
 	}
 }
 
@@ -120,7 +136,7 @@ float PerlinMap::index(float x, float y) const {
 
 	for (auto& layer : layers) {
 		value += layer.index(x, y) * invAmplitude;
-		invAmplitude /= base;
+		invAmplitude /= details.base;
 	}
 
 	return clamp(value, -1, 1);

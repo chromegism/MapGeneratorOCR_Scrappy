@@ -14,11 +14,18 @@ struct TerrainData {
 
 class TerrainGenerator {
 public:
-	TerrainGenerator(const MapSettings& settings) { updateDetails(settings);  }
-	TerrainGenerator() { updateDetails({}); }
+	TerrainGenerator(const MapSettings& settings): perlin(
+		float(settings.width) / float(settings.resolution),
+		float(settings.height) / float(settings.resolution),
+		settings.perlinOctaves, settings.perlinBase)
+	{ 
+		initialisedPerlin = true;
+		updateDetails(settings); 
+	}
+	TerrainGenerator() : perlin() { updateDetails({}); }
 
-	TerrainData genTerrain() const;
-	void genTerrainInto(float* buffer) const;
+	TerrainData genTerrain();
+	void genTerrainInto(float* buffer);
 
 	std::vector<uint32_t> genTriangleIndices() const;
 	void genTriangleIndicesInto(uint32_t* buffer) const;
@@ -36,7 +43,9 @@ public:
 		float base = 0.f;
 	} details;
 private:
-	void genTerrainHeightsInto(const PerlinMap& perlin, float* buffer) const;
-	std::vector<float> genTerrainHeights(const PerlinMap& perlin) const;
+	bool initialisedPerlin = false;
+	PerlinMap perlin; 
+	void genTerrainHeightsInto(float* buffer) const;
+	std::vector<float> genTerrainHeights() const;
 };
 
