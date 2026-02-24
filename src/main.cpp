@@ -61,7 +61,7 @@ int render_test() {
 
 int main(int argc, char* argv[]) {
 	try {
-		return perlin_test();
+		return render_test();
 	}
 	catch (std::exception& e) {
 		std::cerr << "Caught exception: " << e.what() << std::endl;
