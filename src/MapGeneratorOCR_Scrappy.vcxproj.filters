@@ -25,12 +25,18 @@
     <Filter Include="Source Files\Rendering">
       <UniqueIdentifier>{2628e5c6-3e79-4069-8f8a-9afc3237c957}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Source Files\Utility">
+      <UniqueIdentifier>{adcdbe58-6f17-4afb-913c-500aac3cfb9f}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\Utility">
+      <UniqueIdentifier>{77adb655-b727-4af3-85e7-7d6fa9787d1f}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Resource Files\Shaders">
+      <UniqueIdentifier>{51af16b0-94fb-46aa-a19d-ec2ac122966a}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="MapGen.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="MapSettings.cpp">
@@ -45,18 +51,15 @@
     <ClCompile Include="Render.cpp">
       <Filter>Source Files\Rendering</Filter>
     </ClCompile>
-    <ClCompile Include="App.cpp">
-      <Filter>Source Files\Rendering</Filter>
-    </ClCompile>
     <ClCompile Include="Window.cpp">
       <Filter>Source Files\Rendering</Filter>
+    </ClCompile>
+    <ClCompile Include="App.cpp">
+      <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Map.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="MapGen.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="MapSettings.h">
@@ -71,14 +74,25 @@
     <ClInclude Include="Render.h">
       <Filter>Header Files\Rendering</Filter>
     </ClInclude>
-    <ClInclude Include="App.h">
-      <Filter>Header Files\Rendering</Filter>
-    </ClInclude>
     <ClInclude Include="Window.h">
       <Filter>Header Files\Rendering</Filter>
     </ClInclude>
-    <ClInclude Include="DEBUG_LOG.h">
-      <Filter>Header Files\Rendering</Filter>
+    <ClInclude Include="App.h">
+      <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="DEBUG_LOG.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="shaders\test.frag">
+      <Filter>Resource Files\Shaders</Filter>
+    </None>
+    <None Include="shaders\test.vert">
+      <Filter>Resource Files\Shaders</Filter>
+    </None>
+    <None Include="shaders\test.tess">
+      <Filter>Resource Files\Shaders</Filter>
+    </None>
   </ItemGroup>
 </Project>

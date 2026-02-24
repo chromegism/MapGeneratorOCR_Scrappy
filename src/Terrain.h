@@ -1,6 +1,7 @@
 #pragma once
 
 #include <vector>
+#include <thread>
 
 #include "MapSettings.h"
 #include "Perlin.h"
