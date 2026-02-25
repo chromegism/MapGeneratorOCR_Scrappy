@@ -3,6 +3,7 @@
 #include <SDL3/SDL.h>
 
 #include "App.h"
+#include "DEBUG_LOG.h"
 
 void Camera::forward(float by) {
 	const glm::vec3 mov = orientation * glm::vec3(0, 0, -1);
@@ -100,12 +101,17 @@ void Application::update() {
 
 	if (keyState[SDL_SCANCODE_RETURN]) {
 		if (timeSinceMapUpdate >= mapUpdateCooldown) {
-			std::cout << "Regenerating" << std::endl;
-			auto before = Clock::now();
-			renderer.updateTerrain(terrainGenerator);
-			auto after = Clock::now();
-			auto duration = after - before;
-			std::cout << "Took " << std::chrono::duration_cast<std::chrono::microseconds>(after - before).count() << "um" << std::endl;
+			DEBUG_RUN{
+				DEBUG_LOG << "Regenerating" << std::endl;
+				auto before = Clock::now();
+				renderer.updateTerrain(terrainGenerator);
+				auto after = Clock::now();
+				auto duration = after - before;
+				DEBUG_LOG << "Took " << std::chrono::duration_cast<std::chrono::microseconds>(after - before).count() << "um" << std::endl;
+			}
+			else {
+				renderer.updateTerrain(terrainGenerator);
+			}
 			timeSinceMapUpdate = 0;
 		}
 	}
