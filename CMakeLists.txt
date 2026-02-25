@@ -39,7 +39,6 @@ target_compile_definitions(tinygltf INTERFACE
 
 set(SOURCES 
     src/main.cpp
-    src/MapGen.cpp
     src/MapSettings.cpp
     src/Perlin.cpp
     src/Render.cpp
