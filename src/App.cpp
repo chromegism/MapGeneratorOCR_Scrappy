@@ -101,13 +101,13 @@ void Application::update() {
 
 	if (keyState[SDL_SCANCODE_RETURN]) {
 		if (timeSinceMapUpdate >= mapUpdateCooldown) {
-			DEBUG_RUN{
-				DEBUG_LOG << "Regenerating" << std::endl;
+			if(true){
+				std::cout << "Regenerating" << std::endl;
 				auto before = Clock::now();
 				renderer.updateTerrain(terrainGenerator);
 				auto after = Clock::now();
 				auto duration = after - before;
-				DEBUG_LOG << "Took " << std::chrono::duration_cast<std::chrono::microseconds>(after - before).count() << "um" << std::endl;
+				std::cout << "Took " << std::chrono::duration_cast<std::chrono::microseconds>(after - before).count() << "um" << std::endl;
 			}
 			else {
 				renderer.updateTerrain(terrainGenerator);
