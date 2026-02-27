@@ -50,6 +50,7 @@ void Renderer::init(SDL_Window* window, TerrainGenerator& generator) {
 	createFramebuffers();
 	createVertexBuffer(generator);
 	createIndexBuffer(generator);
+	createHeightBuffer(generator);
 	createUniformBuffers();
 	createDescriptorPool();
 	createDescriptorSets();
@@ -77,7 +78,7 @@ void Renderer::createInstance() {
 	std::vector<const char*> extensions(availableExtensions, availableExtensions + extensionCount);
 	std::vector<const char*> additionalExtensions{ VK_EXT_DEBUG_REPORT_EXTENSION_NAME };
 	for (auto ext : additionalExtensions) {
-		extensions.push_back(ext);
+		extensions.emplace_back(ext);
 	}
 
 	createInfo.enabledExtensionCount = static_cast<uint32_t>(extensions.size());
@@ -87,7 +88,7 @@ void Renderer::createInstance() {
 	std::vector<const char*> layers = {};
 	
 	DEBUG_RUN{
-		layers.push_back("VK_LAYER_KHRONOS_validation");
+		layers.emplace_back("VK_LAYER_KHRONOS_validation");
 		std::cout << "Validation layers enabled" << std::endl;
 	}
 
@@ -248,6 +249,7 @@ void Renderer::createLogicalDevice() {
 	std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
 	std::set<uint32_t> uniqueQueueFamilies = { indices.graphicsFamily.value(), indices.presentFamily.value() };
 
+	queueCreateInfos.reserve(uniqueQueueFamilies.size());
 	float queuePriority = 1.f;
 	for (uint32_t queueFamily : uniqueQueueFamilies) {
 		VkDeviceQueueCreateInfo queueCreateInfo{};
@@ -255,7 +257,7 @@ void Renderer::createLogicalDevice() {
 		queueCreateInfo.queueFamilyIndex = queueFamily;
 		queueCreateInfo.queueCount = 1;
 		queueCreateInfo.pQueuePriorities = &queuePriority;
-		queueCreateInfos.push_back(queueCreateInfo);
+		queueCreateInfos.emplace_back(queueCreateInfo);
 	}
 
 
@@ -529,12 +531,12 @@ void Renderer::createGraphicsPipeline() {
 	VkPipelineVertexInputStateCreateInfo vertexInputInfo{};
 	vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
 
-	auto bindingDescription = Vertex::getBindingDescription();
+	auto bindingDescriptions = Vertex::getBindingDescriptions();
 	auto attributeDescriptions = Vertex::getAttributeDescriptions();
 
-	vertexInputInfo.vertexBindingDescriptionCount = 1;
+	vertexInputInfo.vertexBindingDescriptionCount = 2;
 	vertexInputInfo.vertexAttributeDescriptionCount = static_cast<uint32_t>(attributeDescriptions.size());
-	vertexInputInfo.pVertexBindingDescriptions = &bindingDescription;
+	vertexInputInfo.pVertexBindingDescriptions = bindingDescriptions.data();
 	vertexInputInfo.pVertexAttributeDescriptions = attributeDescriptions.data();
 
 	VkPipelineInputAssemblyStateCreateInfo inputAssembly{};
@@ -955,20 +957,6 @@ void Renderer::createVertexBuffer(TerrainGenerator& generator) {
 	uint32_t bufferLength = generator.details.width * generator.details.height;
 	uint32_t bufferSize = sizeof(float) * bufferLength;
 
-	VkBuffer stagingBuffer;
-	VkDeviceMemory stagingBufferMemory;
-	createBuffer(
-		bufferSize,
-		VK_BUFFER_USAGE_TRANSFER_SRC_BIT, 
-		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-		stagingBuffer, stagingBufferMemory
-	);
-
-	void* data;
-	vkMapMemory(device, stagingBufferMemory, 0, sizeof(float) * bufferLength, 0, &data);
-	generator.genTerrainInto(static_cast<float*>(data));
-	vkUnmapMemory(device, stagingBufferMemory);
-
 	createBuffer(
 		bufferSize,
 		VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
@@ -976,10 +964,7 @@ void Renderer::createVertexBuffer(TerrainGenerator& generator) {
 		vertexBuffer, vertexBufferMemory
 	);
 
-	copyBuffer(stagingBuffer, vertexBuffer, bufferSize);
-
-	vkDestroyBuffer(device, stagingBuffer, nullptr);
-	vkFreeMemory(device, stagingBufferMemory, nullptr);
+	updateVertexBuffer(generator);
 
 	DEBUG_LOG << "Successfully created vertex buffer" << std::endl;
 }
@@ -1002,6 +987,7 @@ void Renderer::updateVertexBuffer(TerrainGenerator& generator) {
 
 	void* data;
 	vkMapMemory(device, stagingBufferMemory, 0, sizeof(float) * bufferLength, 0, &data);
+	float* data_as_float = static_cast<float*>(data);
 	generator.genTerrainInto(static_cast<float*>(data));
 	vkUnmapMemory(device, stagingBufferMemory);
 
@@ -1032,6 +1018,33 @@ void Renderer::createIndexBuffer(TerrainGenerator& generator) {
 	vkFreeMemory(device, stagingBufferMemory, nullptr);
 }
 
+void Renderer::createHeightBuffer(TerrainGenerator& generator) {
+	VkDeviceSize bufferSize = generator.details.width * generator.details.height * sizeof(glm::float32_t);
+
+	VkBuffer stagingBuffer;
+	VkDeviceMemory stagingBufferMemory;
+	createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory);
+
+	void* data;
+	vkMapMemory(device, stagingBufferMemory, 0, bufferSize, 0, &data);
+	generator.genTerrainInto(static_cast<glm::float32_t*>(data));
+	vkUnmapMemory(device, stagingBufferMemory);
+
+	createBuffer(
+		bufferSize, 
+		VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, 
+		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, 
+		heightBuffer, heightBufferMemory
+	);
+
+	copyBuffer(stagingBuffer, heightBuffer, bufferSize);
+
+	vkDestroyBuffer(device, stagingBuffer, nullptr);
+	vkFreeMemory(device, stagingBufferMemory, nullptr);
+
+	DEBUG_LOG << "Successfully created height image" << std::endl;
+}
+
 void Renderer::createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory) {
 	VkBufferCreateInfo bufferInfo{};
 	bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
@@ -1059,36 +1072,34 @@ void Renderer::createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemor
 }
 
 void Renderer::copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size) {
-	VkCommandBufferAllocateInfo allocInfo{};
-	allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-	allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-	allocInfo.commandPool = commandPool;
-	allocInfo.commandBufferCount = 1;
-
-	VkCommandBuffer commandBuffer;
-	vkAllocateCommandBuffers(device, &allocInfo, &commandBuffer);
-
-	VkCommandBufferBeginInfo beginInfo{};
-	beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-	beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-
-	vkBeginCommandBuffer(commandBuffer, &beginInfo);
+	VkCommandBuffer commandBuffer = beginSingleTimeCommands();
 
 	VkBufferCopy copyRegion{};
 	copyRegion.size = size;
 	vkCmdCopyBuffer(commandBuffer, srcBuffer, dstBuffer, 1, &copyRegion);
 
-	vkEndCommandBuffer(commandBuffer);
+	endSingleTimeCommands(commandBuffer);
+}
 
-	VkSubmitInfo submitInfo{};
-	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-	submitInfo.commandBufferCount = 1;
-	submitInfo.pCommandBuffers = &commandBuffer;
+void Renderer::copyBufferToImage(VkBuffer srcBuffer, VkImage dstImage, uint32_t width, uint32_t height) {
+	VkCommandBuffer commandBuffer = beginSingleTimeCommands();
 
-	vkQueueSubmit(graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE);
-	vkQueueWaitIdle(graphicsQueue);
+	VkBufferImageCopy copyRegion{};
+	copyRegion.bufferOffset = 0;
+	copyRegion.bufferRowLength = 0;
+	copyRegion.bufferImageHeight = 0;
 
-	vkFreeCommandBuffers(device, commandPool, 1, &commandBuffer);
+	copyRegion.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	copyRegion.imageSubresource.layerCount = 1;
+	copyRegion.imageSubresource.mipLevel = 0;
+	copyRegion.imageSubresource.baseArrayLayer = 0;
+
+	copyRegion.imageOffset = { 0, 0, 0 };
+	copyRegion.imageExtent = { width, height, 1 };
+
+	vkCmdCopyBufferToImage(commandBuffer, srcBuffer, dstImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copyRegion);
+
+	endSingleTimeCommands(commandBuffer);
 }
 
 void Renderer::createUniformBuffers() {
@@ -1257,9 +1268,9 @@ void Renderer::recordCommandBuffer(VkCommandBuffer _commandBuffer, uint32_t imag
 		scissor.extent = swapChainExtent;
 		vkCmdSetScissor(_commandBuffer, 0, 1, &scissor);
 
-		VkBuffer vertexBuffers[] = { vertexBuffer };
-		VkDeviceSize offsets[] = { 0 };
-		vkCmdBindVertexBuffers(_commandBuffer, 0, 1, vertexBuffers, offsets);
+		VkBuffer vertexBuffers[] = { vertexBuffer, heightBuffer };
+		VkDeviceSize offsets[] = { 0, 4 };
+		vkCmdBindVertexBuffers(_commandBuffer, 0, 2, vertexBuffers, offsets);
 		vkCmdBindIndexBuffer(_commandBuffer, indexBuffer, 0, VK_INDEX_TYPE_UINT32);
 
 		vkCmdBindDescriptorSets(_commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSets[currentFrame], 0, nullptr);
@@ -1326,6 +1337,9 @@ void Renderer::kill() {
 	vkDestroyImageView(device, depthImageView, nullptr);
 	vkDestroyImage(device, depthImage, nullptr);
 	vkFreeMemory(device, depthImageMemory, nullptr);
+
+	vkDestroyBuffer(device, heightBuffer, nullptr);
+	vkFreeMemory(device, heightBufferMemory, nullptr);
 
 	vkDestroyBuffer(device, indexBuffer, nullptr);
 	vkFreeMemory(device, indexBufferMemory, nullptr);

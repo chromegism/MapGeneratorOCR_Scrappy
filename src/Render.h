@@ -29,22 +29,31 @@ struct MapDetailsObject {
 struct Vertex {
 	glm::float32 height;
 
-	static VkVertexInputBindingDescription getBindingDescription() {
-		VkVertexInputBindingDescription bindingDescription{};
-		bindingDescription.binding = 0;
-		bindingDescription.stride = sizeof(float);
-		bindingDescription.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+	static std::array<VkVertexInputBindingDescription, 2> getBindingDescriptions() {
+		std::array<VkVertexInputBindingDescription, 2> bindingDescription{};
+		bindingDescription[0].binding = 0;
+		bindingDescription[0].stride = sizeof(float);
+		bindingDescription[0].inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+
+		bindingDescription[1].binding = 1;
+		bindingDescription[1].stride = sizeof(float);
+		bindingDescription[1].inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
 
 		return bindingDescription;
 	}
 
-	static std::array<VkVertexInputAttributeDescription, 1> getAttributeDescriptions() {
-		std::array<VkVertexInputAttributeDescription, 1> attributeDescriptions{};
+	static std::array<VkVertexInputAttributeDescription, 2> getAttributeDescriptions() {
+		std::array<VkVertexInputAttributeDescription, 2> attributeDescriptions{};
 
 		attributeDescriptions[0].binding = 0;
 		attributeDescriptions[0].location = 0;
 		attributeDescriptions[0].format = VK_FORMAT_R32_SFLOAT;
 		attributeDescriptions[0].offset = offsetof(Vertex, height);
+
+		attributeDescriptions[1].binding = 1;
+		attributeDescriptions[1].location = 1;
+		attributeDescriptions[1].format = VK_FORMAT_R32_SFLOAT;
+		attributeDescriptions[1].offset = offsetof(Vertex, height);
 
 		return attributeDescriptions;
 	}
@@ -107,6 +116,9 @@ private:
 	std::vector<VkSemaphore> renderFinishedSemaphores;
 	std::vector<VkFence> inFlightFences;
 
+	VkBuffer heightBuffer;
+	VkDeviceMemory heightBufferMemory;
+
 	uint32_t maxFramesInFlight = 0;
 
 	uint32_t currentFrame = 0;
@@ -149,8 +161,9 @@ private:
 	void createFramebuffers();
 	void createCommandPool();
 	void createVertexBuffer(TerrainGenerator& generator);
-	void updateVertexBuffer(TerrainGenerator& generator);
 	void createIndexBuffer(TerrainGenerator& generator);
+	void createHeightBuffer(TerrainGenerator& generator);
+	void updateVertexBuffer(TerrainGenerator& generator);
 	void createUniformBuffers();
 	void createDescriptorPool();
 	void createDescriptorSets();
@@ -158,6 +171,7 @@ private:
 
 	void createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory);
 	void copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
+	void copyBufferToImage(VkBuffer srcBuffer, VkImage dstImage, uint32_t width, uint32_t height);
 
 	void createSyncObjects();
 

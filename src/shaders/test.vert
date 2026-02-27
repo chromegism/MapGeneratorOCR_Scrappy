@@ -10,6 +10,7 @@ layout(binding = 1) uniform MapDetails {
     vec2 displaySize;
 } md;
 
+layout(location = 1) in float pos;
 layout(location = 0) in float height;
 
 layout(location = 0) out vec3 fragColor;
