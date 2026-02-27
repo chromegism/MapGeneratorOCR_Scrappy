@@ -955,7 +955,7 @@ void Renderer::createVertexBuffer(TerrainGenerator& generator) {
 	mapDetailsData.displaySize = glm::vec2(4, 4);
 
 	uint32_t bufferLength = generator.details.width * generator.details.height;
-	uint32_t bufferSize = sizeof(float) * bufferLength;
+	uint32_t bufferSize = sizeof(glm::vec2) * bufferLength;
 
 	VkBuffer stagingBuffer;
 	VkDeviceMemory stagingBufferMemory;
@@ -963,7 +963,14 @@ void Renderer::createVertexBuffer(TerrainGenerator& generator) {
 
 	void* data;
 	vkMapMemory(device, stagingBufferMemory, 0, bufferSize, 0, &data);
-	generator.genTerrainInto(static_cast<glm::float32_t*>(data));
+	glm::vec2* casted_data = static_cast<glm::vec2*>(data);
+	for (uint32_t x = 0; x < generator.details.width; x++) {
+		for (uint32_t y = 0; y < generator.details.height; y++) {
+			const uint32_t index = x * generator.details.height + y;
+			casted_data[index].x = float(x) / float(generator.details.width);
+			casted_data[index].y = float(y) / float(generator.details.height);
+		}
+	}
 	vkUnmapMemory(device, stagingBufferMemory);
 
 	createBuffer(
