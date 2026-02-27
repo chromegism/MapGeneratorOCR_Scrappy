@@ -957,6 +957,15 @@ void Renderer::createVertexBuffer(TerrainGenerator& generator) {
 	uint32_t bufferLength = generator.details.width * generator.details.height;
 	uint32_t bufferSize = sizeof(float) * bufferLength;
 
+	VkBuffer stagingBuffer;
+	VkDeviceMemory stagingBufferMemory;
+	createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory);
+
+	void* data;
+	vkMapMemory(device, stagingBufferMemory, 0, bufferSize, 0, &data);
+	generator.genTerrainInto(static_cast<glm::float32_t*>(data));
+	vkUnmapMemory(device, stagingBufferMemory);
+
 	createBuffer(
 		bufferSize,
 		VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
@@ -964,38 +973,15 @@ void Renderer::createVertexBuffer(TerrainGenerator& generator) {
 		vertexBuffer, vertexBufferMemory
 	);
 
-	updateVertexBuffer(generator);
-
-	DEBUG_LOG << "Successfully created vertex buffer" << std::endl;
-}
-
-void Renderer::updateVertexBuffer(TerrainGenerator& generator) {
-	mapDetailsData.bufferSize = glm::ivec2(generator.details.width, generator.details.height);
-	mapDetailsData.displaySize = glm::vec2(4, 4);
-
-	uint32_t bufferLength = generator.details.width * generator.details.height;
-	uint32_t bufferSize = sizeof(float) * bufferLength;
-
-	VkBuffer stagingBuffer;
-	VkDeviceMemory stagingBufferMemory;
-	createBuffer(
-		bufferSize,
-		VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-		stagingBuffer, stagingBufferMemory
-	);
-
-	void* data;
-	vkMapMemory(device, stagingBufferMemory, 0, sizeof(float) * bufferLength, 0, &data);
-	float* data_as_float = static_cast<float*>(data);
-	generator.genTerrainInto(static_cast<float*>(data));
-	vkUnmapMemory(device, stagingBufferMemory);
-
 	copyBuffer(stagingBuffer, vertexBuffer, bufferSize);
 
 	vkDestroyBuffer(device, stagingBuffer, nullptr);
 	vkFreeMemory(device, stagingBufferMemory, nullptr);
+
+	DEBUG_LOG << "Successfully created vertex buffer" << std::endl;
 }
+
+
 
 void Renderer::createIndexBuffer(TerrainGenerator& generator) {
 	terrainIndicesLength = generator.calcIndicesLength();
@@ -1019,30 +1005,47 @@ void Renderer::createIndexBuffer(TerrainGenerator& generator) {
 }
 
 void Renderer::createHeightBuffer(TerrainGenerator& generator) {
-	VkDeviceSize bufferSize = generator.details.width * generator.details.height * sizeof(glm::float32_t);
+	uint32_t bufferLength = generator.details.width * generator.details.height;
+	uint32_t bufferSize = sizeof(float) * bufferLength;
+
+	createBuffer(
+		bufferSize,
+		VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+		heightBuffer, heightBufferMemory
+	);
+
+	updateHeightBuffer(generator);
+
+	DEBUG_LOG << "Successfully created height image" << std::endl;
+}
+
+void Renderer::updateHeightBuffer(TerrainGenerator& generator) {
+	mapDetailsData.bufferSize = glm::ivec2(generator.details.width, generator.details.height);
+	mapDetailsData.displaySize = glm::vec2(4, 4);
+
+	uint32_t bufferLength = generator.details.width * generator.details.height;
+	uint32_t bufferSize = sizeof(float) * bufferLength;
 
 	VkBuffer stagingBuffer;
 	VkDeviceMemory stagingBufferMemory;
-	createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory);
+	createBuffer(
+		bufferSize,
+		VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+		stagingBuffer, stagingBufferMemory
+	);
 
 	void* data;
-	vkMapMemory(device, stagingBufferMemory, 0, bufferSize, 0, &data);
-	generator.genTerrainInto(static_cast<glm::float32_t*>(data));
+	vkMapMemory(device, stagingBufferMemory, 0, sizeof(float) * bufferLength, 0, &data);
+	float* data_as_float = static_cast<float*>(data);
+	generator.genTerrainInto(static_cast<float*>(data));
 	vkUnmapMemory(device, stagingBufferMemory);
-
-	createBuffer(
-		bufferSize, 
-		VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, 
-		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, 
-		heightBuffer, heightBufferMemory
-	);
 
 	copyBuffer(stagingBuffer, heightBuffer, bufferSize);
 
 	vkDestroyBuffer(device, stagingBuffer, nullptr);
 	vkFreeMemory(device, stagingBufferMemory, nullptr);
-
-	DEBUG_LOG << "Successfully created height image" << std::endl;
 }
 
 void Renderer::createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory) {
@@ -1269,7 +1272,7 @@ void Renderer::recordCommandBuffer(VkCommandBuffer _commandBuffer, uint32_t imag
 		vkCmdSetScissor(_commandBuffer, 0, 1, &scissor);
 
 		VkBuffer vertexBuffers[] = { vertexBuffer, heightBuffer };
-		VkDeviceSize offsets[] = { 0, 4 };
+		VkDeviceSize offsets[] = { 0, 0 };
 		vkCmdBindVertexBuffers(_commandBuffer, 0, 2, vertexBuffers, offsets);
 		vkCmdBindIndexBuffer(_commandBuffer, indexBuffer, 0, VK_INDEX_TYPE_UINT32);
 
@@ -1453,5 +1456,5 @@ void Renderer::waitIdle() {
 }
 
 void Renderer::updateTerrain(TerrainGenerator& generator) {
-	updateVertexBuffer(generator);
+	updateHeightBuffer(generator);
 }

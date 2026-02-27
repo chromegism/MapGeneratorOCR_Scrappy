@@ -163,7 +163,7 @@ private:
 	void createVertexBuffer(TerrainGenerator& generator);
 	void createIndexBuffer(TerrainGenerator& generator);
 	void createHeightBuffer(TerrainGenerator& generator);
-	void updateVertexBuffer(TerrainGenerator& generator);
+	void updateHeightBuffer(TerrainGenerator& generator);
 	void createUniformBuffers();
 	void createDescriptorPool();
 	void createDescriptorSets();
