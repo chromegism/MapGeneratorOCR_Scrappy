@@ -6,6 +6,7 @@
 #include <fstream>
 #include <limits>
 #include <chrono>
+#include <utility>
 
 #include "Render.h"
 #include "DEBUG_LOG.h"
@@ -61,54 +62,29 @@ void Renderer::init(SDL_Window* window, TerrainGenerator& generator) {
 }
 
 void Renderer::createInstance() {
-	VkApplicationInfo appInfo{};
-	appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
-	appInfo.pApplicationName = "My Vulkan App";
-	appInfo.applicationVersion = VK_MAKE_VERSION(1, 0, 0);
-	appInfo.pEngineName = "No Engine";
-	appInfo.engineVersion = VK_MAKE_VERSION(1, 0, 0);
-	appInfo.apiVersion = VK_API_VERSION_1_3;
-
-	VkInstanceCreateInfo createInfo{};
-	createInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
-	createInfo.pApplicationInfo = &appInfo;
-
 	// getting the platform-specific surface extension with SDL3
 	uint32_t extensionCount = 0;
 	const char* const* availableExtensions = SDL_Vulkan_GetInstanceExtensions(&extensionCount);
 	// copy them into a vector for adjustment
-	std::vector<const char*> extensions(availableExtensions, availableExtensions + extensionCount);
-	std::vector<const char*> additionalExtensions{ VK_EXT_DEBUG_REPORT_EXTENSION_NAME };
+	std::vector<std::string> extensions(availableExtensions, availableExtensions + extensionCount);
+	std::vector<std::string> additionalExtensions{ VK_EXT_DEBUG_REPORT_EXTENSION_NAME };
 	for (auto ext : additionalExtensions) {
 		extensions.emplace_back(ext);
 	}
 
-	createInfo.enabledExtensionCount = static_cast<uint32_t>(extensions.size());
-	createInfo.ppEnabledExtensionNames = extensions.data();
-
 	// Optional: Enable validation layers (for debugging)
-	std::vector<const char*> layers = {};
+	std::vector<std::string> layers = {};
 	
 	DEBUG_RUN{
 		layers.emplace_back("VK_LAYER_KHRONOS_validation");
 		std::cout << "Validation layers enabled" << std::endl;
 	}
 
-	createInfo.enabledLayerCount = static_cast<uint32_t>(layers.size());
-	createInfo.ppEnabledLayerNames = layers.data();
+	instance = Instance("Render Test", {1, 0, 0}, "No engine", {1, 0, 0}, VK_API_VERSION_1_3, std::move(extensions), std::move(layers));
+	if (!instance.isValid())
+		throw std::runtime_error("Invalid VkInstance created");
 
-	VkResult error_code = vkCreateInstance(&createInfo, nullptr, &instance);
-	if (error_code != VK_SUCCESS) {
-		DEBUG_RUN{
-			throw std::runtime_error("Failed to create Vulkan instance; check if validation layers are enabled; error code " + std::to_string((int)error_code));
-		}
-		else {
-			throw std::runtime_error("Failed to create Vulkan instance; error code " + std::to_string((int)error_code));
-		}
-	}
-	else {
-		DEBUG_LOG << "Instance created successfully" << std::endl;
-	}
+	DEBUG_LOG << "Instance created successfully" << std::endl;
 }
 
 Renderer::QueueFamilyIndices Renderer::findQueueFamilies(VkPhysicalDevice _pDevice) {
@@ -225,14 +201,14 @@ VkPhysicalDevice Renderer::findBestPhysicalDevice(const std::vector<VkPhysicalDe
 
 void Renderer::pickPhysicalDevice() {
 	uint32_t device_count = 0;
-	vkEnumeratePhysicalDevices(instance, &device_count, nullptr);
+	vkEnumeratePhysicalDevices(instance.handle(), &device_count, nullptr);
 
 	if (device_count == 0) {
 		throw std::runtime_error("Failed to find a Vulkan-compatible device");
 	}
 
 	std::vector<VkPhysicalDevice> devices(device_count);
-	vkEnumeratePhysicalDevices(instance, &device_count, devices.data());
+	vkEnumeratePhysicalDevices(instance.handle(), &device_count, devices.data());
 
 	physicalDevice = findBestPhysicalDevice(devices);
 
@@ -282,7 +258,9 @@ void Renderer::createLogicalDevice() {
 }
 
 void Renderer::createSurface(SDL_Window* window) {
-	if (!SDL_Vulkan_CreateSurface(window, instance, nullptr, &surface)) {
+	std::cout << instance.handle() << std::endl;
+	std::cout << window << std::endl;
+	if (!SDL_Vulkan_CreateSurface(window, instance.handle(), nullptr, &surface)) {
 		throw std::runtime_error("Failed to create Vulkan surface: " + (std::string)SDL_GetError());
 	}
 	DEBUG_ELSE {
@@ -1427,8 +1405,8 @@ void Renderer::kill() {
 
 	vkDestroyDevice(device, nullptr);
 
-	vkDestroySurfaceKHR(instance, surface, nullptr);
-	vkDestroyInstance(instance, nullptr);
+	vkDestroySurfaceKHR(instance.handle(), surface, nullptr);
+	instance.destroy();
 };
 
 Renderer::~Renderer() {

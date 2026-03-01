@@ -14,6 +14,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 
 #include "Terrain.h"
+#include "Instance.h"
 
 struct MVPBufferObject {
 	glm::mat4 model;
@@ -68,7 +69,7 @@ private:
 		VK_KHR_SWAPCHAIN_EXTENSION_NAME,
 	};
 
-	VkInstance instance;
+	Instance instance;
 	VkPhysicalDevice physicalDevice;
 	VkDevice device;
 	VkQueue graphicsQueue;
