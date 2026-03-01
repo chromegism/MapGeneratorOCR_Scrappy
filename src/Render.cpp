@@ -1062,6 +1062,8 @@ void Renderer::updateHeightImage(TerrainGenerator& generator) {
 
 void Renderer::createHeightImageView() {
 	heightImageView = createImageView(heightImage, VK_FORMAT_R32_SFLOAT, VK_IMAGE_ASPECT_COLOR_BIT);
+
+	DEBUG_LOG << "Successfully created height image view" << std::endl;
 }
 
 void Renderer::createHeightSampler() {
@@ -1091,6 +1093,8 @@ void Renderer::createHeightSampler() {
 	if (vkCreateSampler(device, &samplerInfo, nullptr, &heightSampler) != VK_SUCCESS) {
 		throw std::runtime_error("failed to create texture sampler!");
 	}
+
+	DEBUG_LOG << "Successfully created height image sampler" << std::endl;
 }
 
 void Renderer::createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory) {
