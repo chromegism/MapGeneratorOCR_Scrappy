@@ -29,31 +29,22 @@ struct MapDetailsObject {
 struct Vertex {
 	glm::float32 height;
 
-	static std::array<VkVertexInputBindingDescription, 2> getBindingDescriptions() {
-		std::array<VkVertexInputBindingDescription, 2> bindingDescription{};
+	static std::array<VkVertexInputBindingDescription, 1> getBindingDescriptions() {
+		std::array<VkVertexInputBindingDescription, 1> bindingDescription{};
 		bindingDescription[0].binding = 0;
 		bindingDescription[0].stride = sizeof(glm::vec2);
 		bindingDescription[0].inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
 
-		bindingDescription[1].binding = 1;
-		bindingDescription[1].stride = sizeof(float);
-		bindingDescription[1].inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
-
 		return bindingDescription;
 	}
 
-	static std::array<VkVertexInputAttributeDescription, 2> getAttributeDescriptions() {
-		std::array<VkVertexInputAttributeDescription, 2> attributeDescriptions{};
+	static std::array<VkVertexInputAttributeDescription, 1> getAttributeDescriptions() {
+		std::array<VkVertexInputAttributeDescription, 1> attributeDescriptions{};
 
 		attributeDescriptions[0].binding = 0;
 		attributeDescriptions[0].location = 0;
 		attributeDescriptions[0].format = VK_FORMAT_R32G32_SFLOAT;
 		attributeDescriptions[0].offset = 0;
-
-		attributeDescriptions[1].binding = 1;
-		attributeDescriptions[1].location = 1;
-		attributeDescriptions[1].format = VK_FORMAT_R32_SFLOAT;
-		attributeDescriptions[1].offset = 0;
 
 		return attributeDescriptions;
 	}
@@ -116,8 +107,10 @@ private:
 	std::vector<VkSemaphore> renderFinishedSemaphores;
 	std::vector<VkFence> inFlightFences;
 
-	VkBuffer heightBuffer;
-	VkDeviceMemory heightBufferMemory;
+	VkImage heightImage;
+	VkDeviceMemory heightImageMemory;
+	VkImageView heightImageView;
+	VkSampler heightSampler;
 
 	uint32_t maxFramesInFlight = 0;
 
@@ -162,8 +155,10 @@ private:
 	void createCommandPool();
 	void createVertexBuffer(TerrainGenerator& generator);
 	void createIndexBuffer(TerrainGenerator& generator);
-	void createHeightBuffer(TerrainGenerator& generator);
-	void updateHeightBuffer(TerrainGenerator& generator);
+	void createHeightImage(TerrainGenerator& generator);
+	void createHeightImageView();
+	void updateHeightImage(TerrainGenerator& generator);
+	void createHeightSampler();
 	void createUniformBuffers();
 	void createDescriptorPool();
 	void createDescriptorSets();

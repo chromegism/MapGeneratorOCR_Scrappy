@@ -35,7 +35,7 @@ int perlin_test() {
 
 	std::vector<unsigned char> image(settings.width * settings.height);
 
-	for (int i = 0; i < settings.width * settings.height; i++) {
+	for (uint32_t i = 0; i < settings.width * settings.height; i++) {
 		const float value = terrain.heights[i];
 		const unsigned char v = (unsigned char)((value * 0.5f + 0.5f) * 255.f);
 

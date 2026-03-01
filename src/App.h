@@ -41,7 +41,7 @@ private:
 	Window window;
 	Renderer renderer;
 	Camera camera;
-	MapSettings settings{ 1000, 1000, 1000, { 1.9f, 3.3f, 6.4f, 9.2f, 12.6f }, 2 };
+	MapSettings settings{ 1000, 1000, 1000, { 1.9f, 3.3f, 6.4f, 9.2f, 12.6f }, 2, 100, 100 };
 	TerrainGenerator terrainGenerator;
 	std::map<SDL_Scancode, bool> keyState;
 

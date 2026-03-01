@@ -50,7 +50,9 @@ void Renderer::init(SDL_Window* window, TerrainGenerator& generator) {
 	createFramebuffers();
 	createVertexBuffer(generator);
 	createIndexBuffer(generator);
-	createHeightBuffer(generator);
+	createHeightImage(generator);
+	createHeightImageView();
+	createHeightSampler();
 	createUniformBuffers();
 	createDescriptorPool();
 	createDescriptorSets();
@@ -474,7 +476,14 @@ void Renderer::createDescriptorSetLayout() {
 	mapBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
 	mapBinding.pImmutableSamplers = nullptr;
 
-	std::array<VkDescriptorSetLayoutBinding, 2> bindings = { mvpBinding, mapBinding };
+	VkDescriptorSetLayoutBinding heightSamplerLayoutBinding{};
+	heightSamplerLayoutBinding.binding = 2;
+	heightSamplerLayoutBinding.descriptorCount = 1;
+	heightSamplerLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+	heightSamplerLayoutBinding.pImmutableSamplers = nullptr;
+	heightSamplerLayoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+	
+	std::array<VkDescriptorSetLayoutBinding, 3> bindings = { mvpBinding, mapBinding, heightSamplerLayoutBinding };
 
 	VkDescriptorSetLayoutCreateInfo layoutInfo{};
 	layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
@@ -534,7 +543,7 @@ void Renderer::createGraphicsPipeline() {
 	auto bindingDescriptions = Vertex::getBindingDescriptions();
 	auto attributeDescriptions = Vertex::getAttributeDescriptions();
 
-	vertexInputInfo.vertexBindingDescriptionCount = 2;
+	vertexInputInfo.vertexBindingDescriptionCount = 1;
 	vertexInputInfo.vertexAttributeDescriptionCount = static_cast<uint32_t>(attributeDescriptions.size());
 	vertexInputInfo.pVertexBindingDescriptions = bindingDescriptions.data();
 	vertexInputInfo.pVertexAttributeDescriptions = attributeDescriptions.data();
@@ -963,14 +972,15 @@ void Renderer::createVertexBuffer(TerrainGenerator& generator) {
 
 	void* data;
 	vkMapMemory(device, stagingBufferMemory, 0, bufferSize, 0, &data);
-	glm::vec2* casted_data = static_cast<glm::vec2*>(data);
+	/*glm::vec2* casted_data = static_cast<glm::vec2*>(data);
 	for (uint32_t x = 0; x < generator.details.width; x++) {
 		for (uint32_t y = 0; y < generator.details.height; y++) {
 			const uint32_t index = x * generator.details.height + y;
 			casted_data[index].x = float(x) / float(generator.details.width);
 			casted_data[index].y = float(y) / float(generator.details.height);
 		}
-	}
+	}*/
+	generator.genVertexModelInto(static_cast<glm::vec2*>(data));
 	vkUnmapMemory(device, stagingBufferMemory);
 
 	createBuffer(
@@ -1011,23 +1021,24 @@ void Renderer::createIndexBuffer(TerrainGenerator& generator) {
 	vkFreeMemory(device, stagingBufferMemory, nullptr);
 }
 
-void Renderer::createHeightBuffer(TerrainGenerator& generator) {
+void Renderer::createHeightImage(TerrainGenerator& generator) {
 	uint32_t bufferLength = generator.details.width * generator.details.height;
 	uint32_t bufferSize = sizeof(float) * bufferLength;
 
-	createBuffer(
-		bufferSize,
-		VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+	createImage(
+		generator.details.width, generator.details.height,
+		VK_FORMAT_R32_SFLOAT, VK_IMAGE_TILING_OPTIMAL,
+		VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT,
 		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-		heightBuffer, heightBufferMemory
+		heightImage, heightImageMemory
 	);
 
-	updateHeightBuffer(generator);
+	updateHeightImage(generator);
 
 	DEBUG_LOG << "Successfully created height image" << std::endl;
 }
 
-void Renderer::updateHeightBuffer(TerrainGenerator& generator) {
+void Renderer::updateHeightImage(TerrainGenerator& generator) {
 	mapDetailsData.bufferSize = glm::ivec2(generator.details.width, generator.details.height);
 	mapDetailsData.displaySize = glm::vec2(4, 4);
 
@@ -1049,10 +1060,45 @@ void Renderer::updateHeightBuffer(TerrainGenerator& generator) {
 	generator.genTerrainInto(static_cast<float*>(data));
 	vkUnmapMemory(device, stagingBufferMemory);
 
-	copyBuffer(stagingBuffer, heightBuffer, bufferSize);
+	transitionImageLayout(heightImage, VK_FORMAT_R32_SFLOAT, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+	copyBufferToImage(stagingBuffer, heightImage, generator.details.width, generator.details.height);
+	transitionImageLayout(heightImage, VK_FORMAT_R32_SFLOAT, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
 	vkDestroyBuffer(device, stagingBuffer, nullptr);
 	vkFreeMemory(device, stagingBufferMemory, nullptr);
+}
+
+void Renderer::createHeightImageView() {
+	heightImageView = createImageView(heightImage, VK_FORMAT_R32_SFLOAT, VK_IMAGE_ASPECT_COLOR_BIT);
+}
+
+void Renderer::createHeightSampler() {
+	VkSamplerCreateInfo samplerInfo{};
+	samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+	samplerInfo.magFilter = VK_FILTER_LINEAR;
+	samplerInfo.minFilter = VK_FILTER_LINEAR;
+
+	samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
+	samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
+	samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
+
+	samplerInfo.anisotropyEnable = VK_FALSE;
+	samplerInfo.maxAnisotropy = 1.f;
+
+	samplerInfo.borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_BLACK;
+	samplerInfo.unnormalizedCoordinates = VK_FALSE;
+
+	samplerInfo.compareEnable = VK_FALSE;
+	samplerInfo.compareOp = VK_COMPARE_OP_ALWAYS;
+
+	samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+	samplerInfo.mipLodBias = 0.0f;
+	samplerInfo.minLod = 0.0f;
+	samplerInfo.maxLod = 0.0f;
+
+	if (vkCreateSampler(device, &samplerInfo, nullptr, &heightSampler) != VK_SUCCESS) {
+		throw std::runtime_error("failed to create texture sampler!");
+	}
 }
 
 void Renderer::createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory) {
@@ -1144,15 +1190,16 @@ void Renderer::createUniformBuffers() {
 }
 
 void Renderer::createDescriptorPool() {
-	VkDescriptorPoolSize poolSize{};
-	poolSize.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-	poolSize.descriptorCount = static_cast<uint32_t>(maxFramesInFlight * 2);
+	std::array<VkDescriptorPoolSize, 2> poolSizes{};
+	poolSizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+	poolSizes[0].descriptorCount = static_cast<uint32_t>(maxFramesInFlight * 2);
+	poolSizes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+	poolSizes[1].descriptorCount = static_cast<uint32_t>(maxFramesInFlight);
 
 	VkDescriptorPoolCreateInfo poolInfo{};
 	poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-	poolInfo.poolSizeCount = 1;
-	poolInfo.pPoolSizes = &poolSize;
-
+	poolInfo.poolSizeCount = static_cast<uint32_t>(poolSizes.size());
+	poolInfo.pPoolSizes = poolSizes.data();
 	poolInfo.maxSets = static_cast<uint32_t>(maxFramesInFlight);
 
 	if (vkCreateDescriptorPool(device, &poolInfo, nullptr, &descriptorPool) != VK_SUCCESS) {
@@ -1204,8 +1251,23 @@ void Renderer::createDescriptorSets() {
 		mapDetailsWrite.descriptorCount = 1;
 		mapDetailsWrite.pBufferInfo = &mapDetailsBufferInfo;
 
-		VkWriteDescriptorSet writes[] = { mvpWrite, mapDetailsWrite };
-		vkUpdateDescriptorSets(device, 2, writes, 0, nullptr);
+		// Height sampler (binding 2)
+		VkDescriptorImageInfo heightInfo{};
+		heightInfo.imageLayout = VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL;
+		heightInfo.imageView = heightImageView;
+		heightInfo.sampler = heightSampler;
+
+		VkWriteDescriptorSet heightInfoWrite{};
+		heightInfoWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+		heightInfoWrite.dstSet = descriptorSets[i];
+		heightInfoWrite.dstBinding = 2;
+		heightInfoWrite.dstArrayElement = 0;
+		heightInfoWrite.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+		heightInfoWrite.descriptorCount = 1;
+		heightInfoWrite.pImageInfo = &heightInfo;
+
+		VkWriteDescriptorSet writes[] = { mvpWrite, mapDetailsWrite, heightInfoWrite };
+		vkUpdateDescriptorSets(device, 3, writes, 0, nullptr);
 	}
 }
 
@@ -1278,9 +1340,9 @@ void Renderer::recordCommandBuffer(VkCommandBuffer _commandBuffer, uint32_t imag
 		scissor.extent = swapChainExtent;
 		vkCmdSetScissor(_commandBuffer, 0, 1, &scissor);
 
-		VkBuffer vertexBuffers[] = { vertexBuffer, heightBuffer };
-		VkDeviceSize offsets[] = { 0, 0 };
-		vkCmdBindVertexBuffers(_commandBuffer, 0, 2, vertexBuffers, offsets);
+		VkBuffer vertexBuffers[] = { vertexBuffer };
+		VkDeviceSize offsets[] = { 0 };
+		vkCmdBindVertexBuffers(_commandBuffer, 0, 1, vertexBuffers, offsets);
 		vkCmdBindIndexBuffer(_commandBuffer, indexBuffer, 0, VK_INDEX_TYPE_UINT32);
 
 		vkCmdBindDescriptorSets(_commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSets[currentFrame], 0, nullptr);
@@ -1348,8 +1410,10 @@ void Renderer::kill() {
 	vkDestroyImage(device, depthImage, nullptr);
 	vkFreeMemory(device, depthImageMemory, nullptr);
 
-	vkDestroyBuffer(device, heightBuffer, nullptr);
-	vkFreeMemory(device, heightBufferMemory, nullptr);
+	vkDestroySampler(device, heightSampler, nullptr);
+	vkDestroyImageView(device, heightImageView, nullptr);
+	vkDestroyImage(device, heightImage, nullptr);
+	vkFreeMemory(device, heightImageMemory, nullptr);
 
 	vkDestroyBuffer(device, indexBuffer, nullptr);
 	vkFreeMemory(device, indexBufferMemory, nullptr);
@@ -1463,5 +1527,5 @@ void Renderer::waitIdle() {
 }
 
 void Renderer::updateTerrain(TerrainGenerator& generator) {
-	updateHeightBuffer(generator);
+	updateHeightImage(generator);
 }

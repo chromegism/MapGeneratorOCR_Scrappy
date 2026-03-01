@@ -3,6 +3,8 @@
 #include <vector>
 #include <thread>
 
+#include <glm/glm.hpp>
+
 #include "MapSettings.h"
 #include "Perlin.h"
 
@@ -30,18 +32,22 @@ public:
 
 	std::vector<uint32_t> genTriangleIndices() const;
 	void genTriangleIndicesInto(uint32_t* buffer) const;
+	void genVertexModelInto(glm::vec2* buffer) const;
 
 	uint32_t calcIndicesLength() const;
 
 	void updateDetails(const MapSettings& settings) {
 		details.width = settings.width; details.height = settings.height; details.resolution = settings.resolution;
 		details.perlinOctaves = settings.perlinOctaves, details.base = settings.perlinBase;
+		details.model_x = settings.model_x; details.model_y = settings.model_y;
 	}
 
 	struct {
 		uint32_t width = 0, height = 0, resolution = 0;
 		std::vector<float> perlinOctaves = {};
 		float base = 0.f;
+
+		uint32_t model_x = 0, model_y = 0;
 	} details;
 private:
 	bool initialisedPerlin = false;
