@@ -76,14 +76,14 @@ void TerrainGenerator::genTriangleIndicesInto(uint32_t* buffer) const {
 
     const uint32_t stride = 2 * details.chunks_x - 1;
 
-    uint32_t i = 0;
+    uint32_t index = 0;
 
     for (uint32_t row = 0; row < length / stride; ++row)
     {
         const bool increasing = (row & 1) == 0;
         const uint32_t rowBase = row * details.chunks_x;
 
-        for (uint32_t col = 0; col < stride; ++col, ++i)
+        for (uint32_t col = 0; col < stride; col++, index++)
         {
             uint32_t base = col >> 1;          // col / 2
             uint32_t upper = (col & 1) * details.chunks_x;
@@ -95,7 +95,7 @@ void TerrainGenerator::genTriangleIndicesInto(uint32_t* buffer) const {
             else
                 n = (details.chunks_x - base - 1) + upper;
 
-            buffer[i] = n + rowBase;
+            buffer[index] = n + rowBase;
         }
     }
 }
