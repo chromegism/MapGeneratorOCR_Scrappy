@@ -14,6 +14,7 @@ private:
 	std::string name_;
 	std::string engineName_;
 
+public:
 	struct Version {
 		uint32_t major = 0;
 		uint32_t minor = 0;
@@ -21,6 +22,7 @@ private:
 
 		uint32_t makeVersion() const { return VK_MAKE_VERSION(major, minor, patch); }
 	};
+private:
 
 	Version version_{};
 	Version engineVersion_{};
