@@ -258,8 +258,6 @@ void Renderer::createLogicalDevice() {
 }
 
 void Renderer::createSurface(SDL_Window* window) {
-	std::cout << instance.handle() << std::endl;
-	std::cout << window << std::endl;
 	if (!SDL_Vulkan_CreateSurface(window, instance.handle(), nullptr, &surface)) {
 		throw std::runtime_error("Failed to create Vulkan surface: " + (std::string)SDL_GetError());
 	}

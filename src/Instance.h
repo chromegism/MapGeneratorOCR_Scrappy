@@ -4,8 +4,9 @@
 #include <string>
 #include <cstdint>
 
+#include <SDL3/SDL_vulkan.h>
 #include <vulkan/vulkan.h>
-#include <vulkan/vulkan_core.h>
+#include <vulkan/vulkan_beta.h>
 
 class Instance {
 private:
@@ -42,6 +43,24 @@ private:
 
 public:
 	Instance() noexcept = default;
+	Instance(const Instance&) = delete; // move only
+
+	Instance(Instance&& other) noexcept : handle_(other.handle_) {
+		other.handle_ = VK_NULL_HANDLE;
+	}
+	// If operator= is done with a temporary, the other temporary will call the destructor, and thus vkDestroyInstance
+	// So we need to prevent that, otherwise it will crash
+	// This took quite literally 6 hours of debugging to catch
+	Instance& operator=(Instance&& other) noexcept {
+		if (this != &other) {
+			if (handle_)
+				vkDestroyInstance(handle_, nullptr);
+
+			handle_ = other.handle_;
+			other.handle_ = VK_NULL_HANDLE;
+		}
+		return *this;
+ 	}
 
 	Instance(
 		const std::string& _name, Version _version,
