@@ -52,6 +52,8 @@ message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
 add_executable(main
     ${SOURCES}
 )
+set_target_properties( main PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/out )
+
 
 target_link_libraries(main PRIVATE
     Vulkan::Vulkan

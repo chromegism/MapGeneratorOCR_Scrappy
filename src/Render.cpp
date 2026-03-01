@@ -972,7 +972,7 @@ void Renderer::createVertexBuffer(TerrainGenerator& generator) {
 
 	void* data;
 	vkMapMemory(device, stagingBufferMemory, 0, bufferSize, 0, &data);
-	generator.genVertexModelInto(static_cast<glm::vec2*>(data));
+	generator.genVertexChunksInto(static_cast<glm::vec2*>(data));
 	vkUnmapMemory(device, stagingBufferMemory);
 
 	createBuffer(
