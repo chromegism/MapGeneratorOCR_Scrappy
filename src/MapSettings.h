@@ -2,6 +2,8 @@
 #include <string>
 #include <vector>
 
+#include <cstdint>
+
 struct MapSettings {
 	uint32_t width;
 	uint32_t height;
