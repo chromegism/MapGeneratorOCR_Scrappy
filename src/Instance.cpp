@@ -64,3 +64,11 @@ void Instance::generate() {
 		throw std::runtime_error("Failed to create Vulkan instance");
 	}
 }
+
+std::vector<std::string> Instance::requiredExtensions() {
+	uint32_t extensionCount = 0;
+	// Get platform specific extensions
+	const char* const* availableExtensions = SDL_Vulkan_GetInstanceExtensions(&extensionCount);
+	const std::vector<std::string> extensions(availableExtensions, availableExtensions + extensionCount);
+	return extensions;
+}

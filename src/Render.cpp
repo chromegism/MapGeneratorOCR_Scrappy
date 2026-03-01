@@ -62,29 +62,28 @@ void Renderer::init(SDL_Window* window, TerrainGenerator& generator) {
 }
 
 void Renderer::createInstance() {
-	// getting the platform-specific surface extension with SDL3
-	uint32_t extensionCount = 0;
-	const char* const* availableExtensions = SDL_Vulkan_GetInstanceExtensions(&extensionCount);
-	// copy them into a vector for adjustment
-	std::vector<std::string> extensions(availableExtensions, availableExtensions + extensionCount);
+	std::vector<std::string> extensions = Instance::requiredExtensions();
+
 	std::vector<std::string> additionalExtensions{ VK_EXT_DEBUG_REPORT_EXTENSION_NAME };
-	for (auto ext : additionalExtensions) {
+	for (const auto& ext : additionalExtensions) {
 		extensions.emplace_back(ext);
 	}
 
 	// Optional: Enable validation layers (for debugging)
 	std::vector<std::string> layers = {};
-	
 	DEBUG_RUN{
 		layers.emplace_back("VK_LAYER_KHRONOS_validation");
 		std::cout << "Validation layers enabled" << std::endl;
 	}
 
 	instance = Instance("Render Test", {1, 0, 0}, "No engine", {1, 0, 0}, VK_API_VERSION_1_3, std::move(extensions), std::move(layers));
-	if (!instance.isValid())
-		throw std::runtime_error("Invalid VkInstance created");
 
 	DEBUG_LOG << "Instance created successfully" << std::endl;
+}
+
+void Renderer::createSurface(SDL_Window* window) {
+	surface = Surface(instance.handle(), window);
+	DEBUG_LOG << "Successfully created Vulkan surface" << std::endl;
 }
 
 Renderer::QueueFamilyIndices Renderer::findQueueFamilies(VkPhysicalDevice _pDevice) {
@@ -102,7 +101,7 @@ Renderer::QueueFamilyIndices Renderer::findQueueFamilies(VkPhysicalDevice _pDevi
 			indices.graphicsFamily = i;
 		}
 		VkBool32 presentSupport = false;
-		vkGetPhysicalDeviceSurfaceSupportKHR(_pDevice, i, surface, &presentSupport);
+		vkGetPhysicalDeviceSurfaceSupportKHR(_pDevice, i, surface.handle(), &presentSupport);
 		if (presentSupport) {
 			indices.presentFamily = i;
 		}
@@ -257,34 +256,25 @@ void Renderer::createLogicalDevice() {
 	vkGetDeviceQueue(device, indices.presentFamily.value(), 0, &presentQueue);
 }
 
-void Renderer::createSurface(SDL_Window* window) {
-	if (!SDL_Vulkan_CreateSurface(window, instance.handle(), nullptr, &surface)) {
-		throw std::runtime_error("Failed to create Vulkan surface: " + (std::string)SDL_GetError());
-	}
-	DEBUG_ELSE {
-		std::cout << "Successfully created Vulkan surface" << std::endl;
-	}
-}
-
 Renderer::SwapChainSupportDetails Renderer::querySwapChainSupport(VkPhysicalDevice _pDevice) {
 	SwapChainSupportDetails details;
 
-	vkGetPhysicalDeviceSurfaceCapabilitiesKHR(_pDevice, surface, &details.capabilities);
+	vkGetPhysicalDeviceSurfaceCapabilitiesKHR(_pDevice, surface.handle(), &details.capabilities);
 
 	uint32_t formatCount;
-	vkGetPhysicalDeviceSurfaceFormatsKHR(_pDevice, surface, &formatCount, nullptr);
+	vkGetPhysicalDeviceSurfaceFormatsKHR(_pDevice, surface.handle(), &formatCount, nullptr);
 
 	if (formatCount != 0) {
 		details.formats.resize(formatCount);
-		vkGetPhysicalDeviceSurfaceFormatsKHR(_pDevice, surface, &formatCount, details.formats.data());
+		vkGetPhysicalDeviceSurfaceFormatsKHR(_pDevice, surface.handle(), &formatCount, details.formats.data());
 	}
 
 	uint32_t presentModeCount;
-	vkGetPhysicalDeviceSurfacePresentModesKHR(_pDevice, surface, &presentModeCount, nullptr);
+	vkGetPhysicalDeviceSurfacePresentModesKHR(_pDevice, surface.handle(), &presentModeCount, nullptr);
 
 	if (presentModeCount != 0) {
 		details.presentModes.resize(presentModeCount);
-		vkGetPhysicalDeviceSurfacePresentModesKHR(_pDevice, surface, &presentModeCount, details.presentModes.data());
+		vkGetPhysicalDeviceSurfacePresentModesKHR(_pDevice, surface.handle(), &presentModeCount, details.presentModes.data());
 	}
 
 	return details;
@@ -347,7 +337,7 @@ void Renderer::createSwapChain(SDL_Window* window) {
 
 	VkSwapchainCreateInfoKHR createInfo{};
 	createInfo.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
-	createInfo.surface = surface;
+	createInfo.surface = surface.handle();
 	createInfo.minImageCount = imageCount;
 	createInfo.imageFormat = surfaceFormat.format;
 	createInfo.imageColorSpace = surfaceFormat.colorSpace;
@@ -1403,7 +1393,7 @@ void Renderer::kill() {
 
 	vkDestroyDevice(device, nullptr);
 
-	vkDestroySurfaceKHR(instance.handle(), surface, nullptr);
+	surface.destroy();
 	instance.destroy();
 };
 

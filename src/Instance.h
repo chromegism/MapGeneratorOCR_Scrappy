@@ -54,9 +54,9 @@ public:
 	Instance& operator=(Instance&& other) noexcept {
 		if (this != &other) {
 			if (handle_)
-				vkDestroyInstance(handle_, nullptr);
+				destroy();
 
-			handle_ = other.handle_;
+			handle_ = other.handle();
 			other.handle_ = VK_NULL_HANDLE;
 		}
 		return *this;
@@ -86,11 +86,7 @@ public:
 	const uint32_t& apiVersion() const noexcept { return apiVersion_; }
 	const std::vector<std::string>& extensions() const noexcept { return extensions_; }
 	const std::vector<std::string>& layers() const noexcept { return layers_; }
-	const VkInstance handle() const {
-		if (!isValid())
-			throw std::runtime_error("Attempt to get empty handle from Instance object");
-		return handle_;
-	}
+	const VkInstance handle() const { return handle_; }
 	bool isValid() const noexcept { return handle_ != VK_NULL_HANDLE; }
 
 	void generate();
@@ -100,4 +96,6 @@ public:
 			handle_ = VK_NULL_HANDLE;
 		}
 	}
+
+	static std::vector<std::string> requiredExtensions();
 };

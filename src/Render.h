@@ -15,6 +15,7 @@
 
 #include "Terrain.h"
 #include "Instance.h"
+#include "Surface.h"
 
 struct MVPBufferObject {
 	glm::mat4 model;
@@ -70,11 +71,11 @@ private:
 	};
 
 	Instance instance;
+	Surface surface;
 	VkPhysicalDevice physicalDevice;
 	VkDevice device;
 	VkQueue graphicsQueue;
 	VkQueue presentQueue;
-	VkSurfaceKHR surface;
 	VkSwapchainKHR swapChain;
 	VkFormat swapChainImageFormat;
 	VkExtent2D swapChainExtent;
