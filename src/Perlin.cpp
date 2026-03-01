@@ -55,8 +55,9 @@ PerlinMap::PerlinMap() {
 
 void PerlinMap::regenerate() {
 	layers.clear();
+	layers.reserve(details.octaves.size());
 	for (float octave : details.octaves) {
-		layers.push_back(PerlinLayer(details.x_multiplier, details.y_multiplier, octave));
+		layers.emplace_back(PerlinLayer(details.x_multiplier, details.y_multiplier, octave));
 	}
 }
 

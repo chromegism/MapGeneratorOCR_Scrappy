@@ -2,13 +2,17 @@
 #include <string>
 #include <vector>
 
+#include <cstdint>
+
 struct MapSettings {
-	int width;
-	int height;
-	int resolution;
+	uint32_t width;
+	uint32_t height;
+	uint32_t resolution;
 
 	std::vector<float> perlinOctaves;
 	float perlinBase;
+
+	uint32_t chunks_x, chunks_y;
 };
 
 enum class ValidateSettingsErrorCode {

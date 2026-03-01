@@ -29,11 +29,11 @@ struct MapDetailsObject {
 struct Vertex {
 	glm::float32 height;
 
-	static VkVertexInputBindingDescription getBindingDescription() {
-		VkVertexInputBindingDescription bindingDescription{};
-		bindingDescription.binding = 0;
-		bindingDescription.stride = sizeof(float);
-		bindingDescription.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+	static std::array<VkVertexInputBindingDescription, 1> getBindingDescriptions() {
+		std::array<VkVertexInputBindingDescription, 1> bindingDescription{};
+		bindingDescription[0].binding = 0;
+		bindingDescription[0].stride = sizeof(glm::vec2);
+		bindingDescription[0].inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
 
 		return bindingDescription;
 	}
@@ -43,8 +43,8 @@ struct Vertex {
 
 		attributeDescriptions[0].binding = 0;
 		attributeDescriptions[0].location = 0;
-		attributeDescriptions[0].format = VK_FORMAT_R32_SFLOAT;
-		attributeDescriptions[0].offset = offsetof(Vertex, height);
+		attributeDescriptions[0].format = VK_FORMAT_R32G32_SFLOAT;
+		attributeDescriptions[0].offset = 0;
 
 		return attributeDescriptions;
 	}
@@ -107,6 +107,11 @@ private:
 	std::vector<VkSemaphore> renderFinishedSemaphores;
 	std::vector<VkFence> inFlightFences;
 
+	VkImage heightImage;
+	VkDeviceMemory heightImageMemory;
+	VkImageView heightImageView;
+	VkSampler heightSampler;
+
 	uint32_t maxFramesInFlight = 0;
 
 	uint32_t currentFrame = 0;
@@ -149,8 +154,11 @@ private:
 	void createFramebuffers();
 	void createCommandPool();
 	void createVertexBuffer(TerrainGenerator& generator);
-	void updateVertexBuffer(TerrainGenerator& generator);
 	void createIndexBuffer(TerrainGenerator& generator);
+	void createHeightImage(TerrainGenerator& generator);
+	void createHeightImageView();
+	void updateHeightImage(TerrainGenerator& generator);
+	void createHeightSampler();
 	void createUniformBuffers();
 	void createDescriptorPool();
 	void createDescriptorSets();
@@ -158,6 +166,7 @@ private:
 
 	void createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory);
 	void copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
+	void copyBufferToImage(VkBuffer srcBuffer, VkImage dstImage, uint32_t width, uint32_t height);
 
 	void createSyncObjects();
 
