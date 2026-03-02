@@ -86,7 +86,7 @@ public:
 	const uint32_t& apiVersion() const noexcept { return apiVersion_; }
 	const std::vector<std::string>& extensions() const noexcept { return extensions_; }
 	const std::vector<std::string>& layers() const noexcept { return layers_; }
-	const VkInstance handle() const { return handle_; }
+	const VkInstance handle() const noexcept { return handle_; }
 	bool isValid() const noexcept { return handle_ != VK_NULL_HANDLE; }
 
 	void generate();

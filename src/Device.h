@@ -35,7 +35,7 @@ private:
 
 public:
 	struct Conditions {
-		const std::vector<std::string> requiredExtensions = { VK_KHR_SWAPCHAIN_EXTENSION_NAME };
+		std::vector<std::string> requiredExtensions = { VK_KHR_SWAPCHAIN_EXTENSION_NAME };
 	};
 
 	struct QueueFamilyIndices {

@@ -137,11 +137,7 @@ private:
 	};
 
 	void createInstance();
-	void pickPhysicalDevice();
-	QueueFamilyIndices findQueueFamilies(VkPhysicalDevice _pDevice);
-	SwapChainSupportDetails querySwapChainSupport(VkPhysicalDevice _pDevice);
 	void createLogicalDevice();
-	void createSurface(SDL_Window* window);
 
 	VkSurfaceFormatKHR chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& availableFormats);
 	VkPresentModeKHR chooseSwapPresentMode(const std::vector<VkPresentModeKHR>& availablePresentModes);
@@ -187,9 +183,5 @@ private:
 	bool hasStencilComponent(VkFormat format);
 	void createDepthResources();
 
-	VkPhysicalDevice findBestPhysicalDevice(const std::vector<VkPhysicalDevice>& devices);
-
-	bool isDeviceSuitable(VkPhysicalDevice _pDevice);
-	bool checkDeviceExtensionSupport(VkPhysicalDevice _pDevice);
 	uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties);
 };

@@ -31,8 +31,9 @@ std::vector<char> readFileCharVector(const std::string& filename) {
 
 void Renderer::init(SDL_Window* window, TerrainGenerator& generator) {
 	createInstance();
-	createSurface(window);
-	pickPhysicalDevice();
+	surface = Surface(instance.handle(), window);
+	physicalDevice = PhysicalDevice::pickBest(instance.handle(), surface.handle());
+
 	createLogicalDevice();
 	createSwapChain(window);
 	createSwapChainViews();
@@ -73,21 +74,7 @@ void Renderer::createInstance() {
 	DEBUG_LOG << "Instance created successfully" << std::endl;
 }
 
-void Renderer::createSurface(SDL_Window* window) {
-	surface = Surface(instance.handle(), window);
-	DEBUG_LOG << "Successfully created Vulkan surface" << std::endl;
-}
-
-void Renderer::pickPhysicalDevice() {
-	physicalDevice = PhysicalDevice::pickBest(instance.handle(), surface.handle());
-}
-
 void Renderer::createLogicalDevice() {
-	uint32_t queue_family_count = 0;
-	vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice.handle(), &queue_family_count, nullptr);
-	std::vector<VkQueueFamilyProperties> queueFamilies(queue_family_count);
-	vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice.handle(), &queue_family_count, queueFamilies.data());
-
 	PhysicalDevice::QueueFamilyIndices indices = physicalDevice.queueFamilyIndices();
 	std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
 	std::set<uint32_t> uniqueQueueFamilies = { indices.graphicsFamily.value(), indices.presentFamily.value() };
