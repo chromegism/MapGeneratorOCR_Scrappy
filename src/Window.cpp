@@ -16,11 +16,11 @@ void Window::init() {
 	}
 }
 
-void Window::kill() {
+void Window::destroy() {
 	SDL_QuitSubSystem(SDL_INIT_VIDEO);
 	SDL_DestroyWindow(handle);
 }
 
 Window::~Window() {
-	kill();
+	destroy();
 }

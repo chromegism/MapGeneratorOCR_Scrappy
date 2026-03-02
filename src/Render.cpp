@@ -1171,7 +1171,7 @@ void Renderer::createSyncObjects() {
 	DEBUG_LOG << "Successfully created sync objects" << std::endl;
 }
 
-void Renderer::kill() {
+void Renderer::destroy() {
 	// destroySwapchain {
 	for (auto framebuffer : swapChainFramebuffers) {
 		vkDestroyFramebuffer(device, framebuffer, nullptr);
@@ -1227,7 +1227,7 @@ void Renderer::kill() {
 };
 
 Renderer::~Renderer() {
-	this->kill();
+	this->destroy();
 }
 
 void Renderer::updateUniformBuffers(uint32_t currentImage) {

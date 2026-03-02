@@ -64,7 +64,7 @@ public:
 
 	void updateTerrain(TerrainGenerator& generator);
 
-	void kill();
+	void destroy();
 
 private:
 	const std::vector<const char*> deviceExtensions = {

@@ -5,7 +5,7 @@ struct SDL_Window;
 class Window {
 public:
 	void init();
-	void kill();
+	void destroy();
 
 	~Window();
 

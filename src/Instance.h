@@ -91,6 +91,7 @@ public:
 
 	void generate();
 	void destroy() { 
+		// handle_ == VK_NULL_HANDLE <=> Instance not yet created / already destroyed
 		if (isValid()) {
 			vkDestroyInstance(handle_, nullptr);
 			handle_ = VK_NULL_HANDLE;
