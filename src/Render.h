@@ -14,6 +14,7 @@
 #include "Instance.h"
 #include "Surface.h"
 #include "Device.h"
+#include "Image.h"
 
 struct MVPBufferObject {
 	glm::mat4 model;
@@ -75,8 +76,7 @@ private:
 	VkSwapchainKHR swapChain;
 	VkFormat swapChainImageFormat;
 	VkExtent2D swapChainExtent;
-	std::vector<VkImage> swapChainImages;
-	std::vector<VkImageView> swapChainImageViews;
+	std::vector<SwapchainImage> swapChainImages;
 	VkDescriptorSetLayout descriptorSetLayout;
 	VkPipelineLayout pipelineLayout;
 	VkRenderPass renderPass;
@@ -137,7 +137,6 @@ private:
 	VkPresentModeKHR chooseSwapPresentMode(const std::vector<VkPresentModeKHR>& availablePresentModes);
 	VkExtent2D chooseSwapExtent(SDL_Window* window, const VkSurfaceCapabilitiesKHR& capabilities);
 	void createSwapChain(SDL_Window* window);
-	void createSwapChainViews();
 
 	VkShaderModule createShaderModule(const std::vector<char>& code);
 	void createDescriptorSetLayout();

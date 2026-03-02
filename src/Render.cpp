@@ -28,7 +28,6 @@ void Renderer::init(SDL_Window* window, TerrainGenerator& generator) {
 	device = LogicalDevice(physicalDevice);
 
 	createSwapChain(window);
-	createSwapChainViews();
 	createDescriptorSetLayout();
 	createGraphicsPipeline();
 	createCommandPool();
@@ -158,45 +157,18 @@ void Renderer::createSwapChain(SDL_Window* window) {
 	}
 
 	vkGetSwapchainImagesKHR(device.handle(), swapChain, &imageCount, nullptr);
-	swapChainImages.resize(imageCount);
-	vkGetSwapchainImagesKHR(device.handle(), swapChain, &imageCount, swapChainImages.data());
+	swapChainImages.reserve(imageCount);
+	std::vector<VkImage> swapchainImagehandles(imageCount);
+	vkGetSwapchainImagesKHR(device.handle(), swapChain, &imageCount, swapchainImagehandles.data());
+
+	for (const auto& handle : swapchainImagehandles) {
+		swapChainImages.emplace_back( SwapchainImage::fromImage(device.handle(), handle, surfaceFormat.format) );
+	}
 
 	swapChainImageFormat = surfaceFormat.format;
 	swapChainExtent = extent;
 
 	maxFramesInFlight = imageCount;
-}
-
-void Renderer::createSwapChainViews() {
-	swapChainImageViews.resize(swapChainImages.size());
-
-	for (size_t i = 0; i < swapChainImages.size(); i++) {
-		VkImageViewCreateInfo createInfo{};
-		createInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-		createInfo.image = swapChainImages[i];
-
-		createInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
-		createInfo.format = swapChainImageFormat;
-
-		createInfo.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
-		createInfo.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
-		createInfo.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
-		createInfo.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
-
-		createInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-		createInfo.subresourceRange.baseMipLevel = 0;
-		createInfo.subresourceRange.levelCount = 1;
-		createInfo.subresourceRange.baseArrayLayer = 0;
-		createInfo.subresourceRange.layerCount = 1;
-
-		if (vkCreateImageView(device.handle(), &createInfo, nullptr, &swapChainImageViews.at(i)) != VK_SUCCESS) {
-			throw std::runtime_error("failed to create image views");
-		} DEBUG_ELSE{
-			std::cout << "Successfully created swapchain image view " << i << std::endl;
-		}
-	}
-
-	DEBUG_LOG << "Successfully created all swapchain image views" << std::endl;
 }
 
 VkShaderModule Renderer::createShaderModule(const std::vector<char>& code) {
@@ -488,11 +460,11 @@ void Renderer::createRenderPass() {
 }
 
 void Renderer::createFramebuffers() {
-	swapChainFramebuffers.resize(swapChainImageViews.size());
+	swapChainFramebuffers.resize(swapChainImages.size());
 
-	for (size_t i = 0; i < swapChainImageViews.size(); i++) {
+	for (size_t i = 0; i < swapChainImages.size(); i++) {
 		std::array<VkImageView, 2> attachments = {
-			swapChainImageViews[i],
+			swapChainImages[i].view(),
 			depthImageView
 		};
 
@@ -1134,8 +1106,8 @@ void Renderer::destroy() {
 		vkDestroyFramebuffer(device.handle(), framebuffer, nullptr);
 	}
 
-	for (auto imageView : swapChainImageViews) {
-		vkDestroyImageView(device.handle(), imageView, nullptr);
+	for (auto& image : swapChainImages) {
+		image.destroy();
 	}
 
 	vkDestroySwapchainKHR(device.handle(), swapChain, nullptr);

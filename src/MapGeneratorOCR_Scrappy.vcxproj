@@ -145,11 +145,13 @@ copy /Y "$(ProjectDir)shaders\" "$(TargetDir)shaders\"</Command>
   <ItemGroup>
     <ClCompile Include="App.cpp" />
     <ClCompile Include="Device.cpp" />
+    <ClCompile Include="Image.cpp" />
     <ClCompile Include="Instance.cpp" />
     <ClCompile Include="MapSettings.cpp" />
     <ClCompile Include="Perlin.cpp" />
     <ClCompile Include="Render.cpp" />
     <ClCompile Include="Surface.cpp" />
+    <ClCompile Include="Swapchain.cpp" />
     <ClCompile Include="Terrain.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="Tools.cpp" />
@@ -158,6 +160,7 @@ copy /Y "$(ProjectDir)shaders\" "$(TargetDir)shaders\"</Command>
     <ClInclude Include="App.h" />
     <ClInclude Include="DEBUG_LOG.h" />
     <ClInclude Include="Device.h" />
+    <ClInclude Include="Image.h" />
     <ClInclude Include="Instance.h" />
     <ClInclude Include="Map.h" />
     <ClInclude Include="MapSettings.h" />
@@ -165,6 +168,7 @@ copy /Y "$(ProjectDir)shaders\" "$(TargetDir)shaders\"</Command>
     <ClInclude Include="Perlin.h" />
     <ClInclude Include="Render.h" />
     <ClInclude Include="Surface.h" />
+    <ClInclude Include="Swapchain.h" />
     <ClInclude Include="Terrain.h" />
     <ClInclude Include="Tools.h" />
     <ClInclude Include="Window.h" />
