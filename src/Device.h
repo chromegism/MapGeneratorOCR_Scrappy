@@ -136,7 +136,7 @@ public:
 };
 
 class LogicalDevice {
-	VkDevice handle_;
+	VkDevice handle_ = VK_NULL_HANDLE;
 
 	Queue graphicsQueue_;
 	Queue presentQueue_;
