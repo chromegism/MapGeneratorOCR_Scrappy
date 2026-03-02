@@ -1,8 +1,4 @@
-#include <cmath>
-#include <utility>
-#include <cstdlib>
-#include <ctime>
-#include <iostream>
+#include "pch.h"
 
 #include "Perlin.h"
 

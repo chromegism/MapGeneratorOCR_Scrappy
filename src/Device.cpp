@@ -1,10 +1,7 @@
-#include <unordered_set>
-#include <string>
-#include <stdexcept>
-
-#include <SDL3/SDL_vulkan.h>
+#include "pch.h"
 
 #include "Device.h"
+#include "Tools.h"
 
 std::vector<VkPhysicalDevice> PhysicalDevice::enumerateDevices(VkInstance _instance) {
 	uint32_t deviceCount;
@@ -174,4 +171,37 @@ PhysicalDevice PhysicalDevice::pickBest(VkInstance _instance, VkSurfaceKHR _surf
 	PhysicalDevice device(_instance, _surface, deviceHandle);
 
 	return device;
+}
+
+LogicalDevice::LogicalDevice(const PhysicalDevice& physicalDevice, const PhysicalDevice::Conditions& conditions) {
+	PhysicalDevice::QueueFamilyIndices indices = physicalDevice.queueFamilyIndices();
+	std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
+	std::unordered_set<uint32_t> uniqueQueueFamilies = { indices.graphicsFamily.value(), indices.presentFamily.value() };
+
+	queueCreateInfos.reserve(uniqueQueueFamilies.size());
+	float queuePriority = 1.f;
+	for (uint32_t queueFamily : uniqueQueueFamilies) {
+		VkDeviceQueueCreateInfo queueCreateInfo{};
+		queueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+		queueCreateInfo.queueFamilyIndex = queueFamily;
+		queueCreateInfo.queueCount = 1;
+		queueCreateInfo.pQueuePriorities = &queuePriority;
+		queueCreateInfos.emplace_back(queueCreateInfo);
+	}
+
+
+	VkDeviceCreateInfo deviceCreateInfo{};
+	deviceCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
+	deviceCreateInfo.queueCreateInfoCount = static_cast<uint32_t>(queueCreateInfos.size());
+	deviceCreateInfo.pQueueCreateInfos = queueCreateInfos.data();
+	deviceCreateInfo.enabledExtensionCount = static_cast<uint32_t>(conditions.requiredExtensions.size());
+	std::vector<const char*> requiredExtensionPtrs = stringVectorToCStrVector(conditions.requiredExtensions);
+	deviceCreateInfo.ppEnabledExtensionNames = requiredExtensionPtrs.data();
+
+	if (vkCreateDevice(physicalDevice.handle(), &deviceCreateInfo, nullptr, &handle_) != VK_SUCCESS) {
+		throw std::runtime_error("Failed to create logical device");
+	}
+
+	graphicsQueue_ = Queue(handle_, indices.graphicsFamily.value());
+	presentQueue_ = Queue(handle_, indices.presentFamily.value());
 }

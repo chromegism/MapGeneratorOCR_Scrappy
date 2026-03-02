@@ -47,6 +47,7 @@ set(SOURCES
     src/Device.cpp
     src/Instance.cpp
     src/Surface.cpp
+    src/Tools.cpp
 )
 
 message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
@@ -54,6 +55,7 @@ message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
 add_executable(main
     ${SOURCES}
 )
+target_precompile_headers(main PRIVATE src/pch.h)
 set_target_properties( main PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/out )
 
 

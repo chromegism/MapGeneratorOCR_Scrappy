@@ -102,3 +102,85 @@ public:
 
 	static PhysicalDevice pickBest(VkInstance, VkSurfaceKHR);
 };
+
+class Queue {
+	VkDevice deviceHandle_ = VK_NULL_HANDLE;
+	VkQueue handle_ = VK_NULL_HANDLE;
+	uint32_t familyIndex_ = 0;
+
+public:
+	void setHandles(VkDevice _deviceHandle, VkQueue _handle, uint32_t _familyIndex) noexcept {
+		deviceHandle_ = _deviceHandle;
+		handle_ = _handle;
+		familyIndex_ = _familyIndex;
+	}
+
+	void clearHandles() noexcept {
+		deviceHandle_ = VK_NULL_HANDLE;
+		handle_ = VK_NULL_HANDLE;
+		uint32_t familyIndex = 0;
+	}
+
+	Queue() noexcept = default;
+	Queue(VkDevice _deviceHandle, uint32_t _familyIndex) : deviceHandle_(_deviceHandle), familyIndex_(_familyIndex) { 
+		vkGetDeviceQueue(_deviceHandle, _familyIndex, 0, &handle_);
+	}
+	Queue(const Queue& other) noexcept {
+		setHandles(other.deviceHandle(), other.handle(), other.familyIndex());
+	}
+
+	VkDevice deviceHandle() const noexcept { return deviceHandle_; }
+	VkQueue handle() const noexcept { return handle_; }
+	uint32_t familyIndex() const noexcept { return familyIndex_; }
+	bool isValid() const noexcept { return handle_ != VK_NULL_HANDLE; }
+};
+
+class LogicalDevice {
+	VkDevice handle_;
+
+	Queue graphicsQueue_;
+	Queue presentQueue_;
+
+	void setHandles(VkDevice _handle, const Queue& _graphicsQueue, const Queue& _presentQueue) noexcept {
+		handle_ = _handle;
+		graphicsQueue_ = _graphicsQueue;
+		presentQueue_ = _presentQueue;
+	}
+	void clearHandles() noexcept {
+		handle_ = VK_NULL_HANDLE;
+		graphicsQueue_.clearHandles();
+		presentQueue_.clearHandles();
+	}
+
+public:
+	LogicalDevice() noexcept = default;
+	LogicalDevice(const PhysicalDevice&, const PhysicalDevice::Conditions&);
+	LogicalDevice(const LogicalDevice&) noexcept = delete;
+
+	LogicalDevice(LogicalDevice&& other) noexcept {
+		setHandles(other.handle(), other.graphicsQueue(), other.presentQueue());
+		other.clearHandles();
+	}
+	LogicalDevice& operator=(LogicalDevice&& other) noexcept {
+		if (this != &other) {
+			if (isValid())
+				destroy();
+
+			setHandles(other.handle(), other.graphicsQueue(), other.presentQueue());
+			other.clearHandles();
+		}
+		return *this;
+	}
+
+	VkDevice handle() const noexcept { return handle_; }
+	const Queue& graphicsQueue() const noexcept { return graphicsQueue_; }
+	const Queue& presentQueue() const noexcept { return presentQueue_; }
+	bool isValid() const noexcept { return handle_ != VK_NULL_HANDLE; }
+
+	void destroy() {
+		if (isValid()) {
+			vkDestroyDevice(handle_, nullptr);
+			clearHandles();
+		}
+	}
+};

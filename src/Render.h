@@ -7,11 +7,8 @@
 #define GLM_FORCE_RADIANS
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
 
-#include <SDL3/SDL_vulkan.h>
 #include <vulkan/vulkan.h>
-#include <vulkan/vulkan_beta.h>
 #include <glm/glm.hpp>
-#include <glm/gtc/matrix_transform.hpp>
 
 #include "Terrain.h"
 #include "Instance.h"
@@ -74,9 +71,7 @@ private:
 	Instance instance;
 	Surface surface;
 	PhysicalDevice physicalDevice;
-	VkDevice device;
-	VkQueue graphicsQueue;
-	VkQueue presentQueue;
+	LogicalDevice device;
 	VkSwapchainKHR swapChain;
 	VkFormat swapChainImageFormat;
 	VkExtent2D swapChainExtent;

@@ -1,21 +1,7 @@
-#include <iostream>
-#include <algorithm>
-#include <iterator>
-#include <ranges>
+#include "pch.h"
 
 #include "Instance.h"
-
-inline std::vector<const char*> stringVectorToCStrVector(const std::vector<std::string>& strings) {
-	std::vector<const char*> cstrings{};
-	cstrings.reserve(strings.size());
-
-	std::ranges::copy(
-    	std::views::transform(strings, [](const std::string& s) { return s.c_str(); }),
-    	std::back_inserter(cstrings)
-	);
-
-	return cstrings;
-}
+#include "Tools.h"
 
 void Instance::genExtensionPtrs() {
 	extensionPtrs_ = stringVectorToCStrVector(extensions_);

@@ -1,7 +1,4 @@
-#include <iostream>
-#include <chrono>
-
-#include <SDL3/SDL.h>
+#include "pch.h"
 
 #include "MapSettings.h"
 #include "Terrain.h"

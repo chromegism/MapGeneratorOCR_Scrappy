@@ -152,6 +152,7 @@ copy /Y "$(ProjectDir)shaders\" "$(TargetDir)shaders\"</Command>
     <ClCompile Include="Surface.cpp" />
     <ClCompile Include="Terrain.cpp" />
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="Tools.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="App.h" />
@@ -160,10 +161,12 @@ copy /Y "$(ProjectDir)shaders\" "$(TargetDir)shaders\"</Command>
     <ClInclude Include="Instance.h" />
     <ClInclude Include="Map.h" />
     <ClInclude Include="MapSettings.h" />
+    <ClInclude Include="pch.h" />
     <ClInclude Include="Perlin.h" />
     <ClInclude Include="Render.h" />
     <ClInclude Include="Surface.h" />
     <ClInclude Include="Terrain.h" />
+    <ClInclude Include="Tools.h" />
     <ClInclude Include="Window.h" />
   </ItemGroup>
   <ItemGroup>

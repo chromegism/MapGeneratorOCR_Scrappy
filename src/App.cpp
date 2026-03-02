@@ -1,6 +1,4 @@
-#include <iostream>
-
-#include <SDL3/SDL.h>
+#include "pch.h"
 
 #include "App.h"
 #include "DEBUG_LOG.h"
