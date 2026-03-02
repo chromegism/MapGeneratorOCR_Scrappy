@@ -31,7 +31,7 @@ void Renderer::init(SDL_Window* window, TerrainGenerator& generator) {
 	createDescriptorSetLayout();
 	createGraphicsPipeline();
 	createCommandPool();
-	createDepthResources();
+	depthImage = DepthImage::fromDevice(device, swapChainExtent.width, swapChainExtent.height, DepthImage::findDepthFormat(physicalDevice));
 	createFramebuffers();
 	createVertexBuffer(generator);
 	createIndexBuffer(generator);
@@ -158,9 +158,9 @@ void Renderer::createSwapChain(SDL_Window* window) {
 
 	vkGetSwapchainImagesKHR(device.handle(), swapChain, &imageCount, nullptr);
 	swapChainImages.reserve(imageCount);
+
 	std::vector<VkImage> swapchainImagehandles(imageCount);
 	vkGetSwapchainImagesKHR(device.handle(), swapChain, &imageCount, swapchainImagehandles.data());
-
 	for (const auto& handle : swapchainImagehandles) {
 		swapChainImages.emplace_back( SwapchainImage::fromImage(device.handle(), handle, surfaceFormat.format) );
 	}
@@ -411,7 +411,7 @@ void Renderer::createRenderPass() {
 	colorAttachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
 
 	VkAttachmentDescription depthAttachment{};
-	depthAttachment.format = findDepthFormat();
+	depthAttachment.format = DepthImage::findDepthFormat(physicalDevice);
 	depthAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
 	depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
 	depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
@@ -465,7 +465,7 @@ void Renderer::createFramebuffers() {
 	for (size_t i = 0; i < swapChainImages.size(); i++) {
 		std::array<VkImageView, 2> attachments = {
 			swapChainImages[i].view(),
-			depthImageView
+			depthImage.view()
 		};
 
 		VkFramebufferCreateInfo framebufferInfo{};
@@ -644,43 +644,6 @@ void Renderer::transitionImageLayout(VkImage image, VkFormat format, VkImageLayo
 	);
 
 	endSingleTimeCommands(commandBuffer);
-}
-
-VkFormat Renderer::findSupportedFormat(const std::vector<VkFormat>& candidates, VkImageTiling tiling, VkFormatFeatureFlags features) {
-	for (VkFormat format : candidates) {
-		VkFormatProperties props;
-		vkGetPhysicalDeviceFormatProperties(physicalDevice.handle(), format, &props);
-
-		if (tiling == VK_IMAGE_TILING_LINEAR && (props.linearTilingFeatures & features) == features) {
-			return format;
-		}
-		else if (tiling == VK_IMAGE_TILING_OPTIMAL && (props.optimalTilingFeatures & features) == features) {
-			return format;
-		}
-	}
-
-	throw std::runtime_error("failed to find supported format!");
-}
-
-VkFormat Renderer::findDepthFormat() {
-	return findSupportedFormat(
-		{ VK_FORMAT_D32_SFLOAT, VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D24_UNORM_S8_UINT },
-		VK_IMAGE_TILING_OPTIMAL,
-		VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT
-	);
-}
-
-bool Renderer::hasStencilComponent(VkFormat format) {
-	return format == VK_FORMAT_D32_SFLOAT_S8_UINT || format == VK_FORMAT_D24_UNORM_S8_UINT;
-}
-
-void Renderer::createDepthResources() {
-	VkFormat depthFormat = findDepthFormat();
-
-	createImage(swapChainExtent.width, swapChainExtent.height, depthFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, depthImage, depthImageMemory);
-	depthImageView = createImageView(depthImage, depthFormat, VK_IMAGE_ASPECT_DEPTH_BIT);
-
-	transitionImageLayout(depthImage, depthFormat, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
 }
 
 void Renderer::createVertexBuffer(TerrainGenerator& generator) {
@@ -1126,9 +1089,7 @@ void Renderer::destroy() {
 
 	vkDestroyDescriptorSetLayout(device.handle(), descriptorSetLayout, nullptr);
 
-	vkDestroyImageView(device.handle(), depthImageView, nullptr);
-	vkDestroyImage(device.handle(), depthImage, nullptr);
-	vkFreeMemory(device.handle(), depthImageMemory, nullptr);
+	depthImage.destroy();
 
 	vkDestroySampler(device.handle(), heightSampler, nullptr);
 	vkDestroyImageView(device.handle(), heightImageView, nullptr);

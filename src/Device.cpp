@@ -206,6 +206,7 @@ LogicalDevice::LogicalDevice(const PhysicalDevice& physicalDevice, const Physica
 		throw std::runtime_error("Failed to create logical device");
 	}
 
+	physicalDeviceHandle_ = physicalDevice.handle();
 	graphicsQueue_ = Queue(handle_, indices.graphicsFamily.value());
 	presentQueue_ = Queue(handle_, indices.presentFamily.value());
 }

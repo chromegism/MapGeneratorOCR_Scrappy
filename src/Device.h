@@ -150,17 +150,20 @@ public:
 };
 
 class LogicalDevice {
+	VkPhysicalDevice physicalDeviceHandle_ = VK_NULL_HANDLE;
 	VkDevice handle_ = VK_NULL_HANDLE;
 
 	Queue graphicsQueue_;
 	Queue presentQueue_;
 
-	void setHandles(VkDevice _handle, const Queue& _graphicsQueue, const Queue& _presentQueue) noexcept {
+	void setHandles(VkPhysicalDevice _physicalDeviceHandle, VkDevice _handle, const Queue& _graphicsQueue, const Queue& _presentQueue) noexcept {
+		physicalDeviceHandle_ = _physicalDeviceHandle;
 		handle_ = _handle;
 		graphicsQueue_ = _graphicsQueue;
 		presentQueue_ = _presentQueue;
 	}
 	void clearHandles() noexcept {
+		physicalDeviceHandle_ = VK_NULL_HANDLE;
 		handle_ = VK_NULL_HANDLE;
 		graphicsQueue_.clearHandles();
 		presentQueue_.clearHandles();
@@ -172,7 +175,7 @@ public:
 	LogicalDevice(const LogicalDevice&) noexcept = delete;
 
 	LogicalDevice(LogicalDevice&& other) noexcept {
-		setHandles(other.handle(), other.graphicsQueue(), other.presentQueue());
+		setHandles(other.physicalDeviceHandle(), other.handle(), other.graphicsQueue(), other.presentQueue());
 		other.clearHandles();
 	}
 	LogicalDevice& operator=(LogicalDevice&& other) noexcept {
@@ -180,13 +183,14 @@ public:
 			if (isValid())
 				destroy();
 
-			setHandles(other.handle(), other.graphicsQueue(), other.presentQueue());
+			setHandles(other.physicalDeviceHandle(), other.handle(), other.graphicsQueue(), other.presentQueue());
 			other.clearHandles();
 		}
 		return *this;
 	}
 	~LogicalDevice() { destroy(); }
 
+	VkPhysicalDevice physicalDeviceHandle() const noexcept { return physicalDeviceHandle_; }
 	VkDevice handle() const noexcept { return handle_; }
 	const Queue& graphicsQueue() const noexcept { return graphicsQueue_; }
 	const Queue& presentQueue() const noexcept { return presentQueue_; }
