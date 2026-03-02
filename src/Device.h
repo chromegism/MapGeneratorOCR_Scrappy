@@ -9,6 +9,7 @@
 
 #include "Instance.h"
 #include "Surface.h"
+#include "Tools.h"
 
 // RAII wrapper for VkPhysicalDevice
 //
@@ -133,6 +134,15 @@ public:
 	VkQueue handle() const noexcept { return handle_; }
 	uint32_t familyIndex() const noexcept { return familyIndex_; }
 	bool isValid() const noexcept { return handle_ != VK_NULL_HANDLE; }
+
+	void submit(const std::vector<VkSubmitInfo>& infos, VkFence fence) const {
+		VkResult error_code = vkQueueSubmit(handle_, static_cast<uint32_t>(infos.size()), infos.data(), fence);
+		handleVkResult(error_code, "Failed to call vkQueueSubmit");
+	}
+	void submit(uint32_t infoCount, VkSubmitInfo* infos, VkFence fence) const {
+		VkResult error_code = vkQueueSubmit(handle_, infoCount, infos, fence);
+		handleVkResult(error_code, "Failed to call vkQueueSubmit");
+	}
 };
 
 class LogicalDevice {
@@ -154,7 +164,7 @@ class LogicalDevice {
 
 public:
 	LogicalDevice() noexcept = default;
-	LogicalDevice(const PhysicalDevice&, const PhysicalDevice::Conditions&);
+	LogicalDevice(const PhysicalDevice&, const PhysicalDevice::Conditions& = {});
 	LogicalDevice(const LogicalDevice&) noexcept = delete;
 
 	LogicalDevice(LogicalDevice&& other) noexcept {
@@ -182,5 +192,11 @@ public:
 			vkDestroyDevice(handle_, nullptr);
 			clearHandles();
 		}
+	}
+
+	void waitIdle() const noexcept { vkDeviceWaitIdle(handle_); }
+	void present(VkPresentInfoKHR* pPresentInfo) const { 
+		VkResult error_code = vkQueuePresentKHR(presentQueue_.handle(), pPresentInfo);
+		handleVkResult(error_code, "Failed to call vkQueuePresentKHR");
 	}
 };

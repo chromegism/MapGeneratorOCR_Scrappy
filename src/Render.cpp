@@ -25,8 +25,8 @@ void Renderer::init(SDL_Window* window, TerrainGenerator& generator) {
 	createInstance();
 	surface = Surface(instance.handle(), window);
 	physicalDevice = PhysicalDevice::pickBest(instance.handle(), surface.handle());
+	device = LogicalDevice(physicalDevice);
 
-	createLogicalDevice();
 	createSwapChain(window);
 	createSwapChainViews();
 	createDescriptorSetLayout();
@@ -64,11 +64,6 @@ void Renderer::createInstance() {
 	instance = Instance("Render Test", {1, 0, 0}, "No engine", {1, 0, 0}, VK_API_VERSION_1_3, std::move(extensions), std::move(layers));
 
 	DEBUG_LOG << "Instance created successfully" << std::endl;
-}
-
-void Renderer::createLogicalDevice() {
-	device = LogicalDevice(physicalDevice, {});
-	DEBUG_LOG << "Successfully created logical device" << std::endl;
 }
 
 VkSurfaceFormatKHR Renderer::chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& availableFormats) {
@@ -1182,8 +1177,7 @@ void Renderer::destroy() {
 
 	vkDestroyCommandPool(device.handle(), commandPool, nullptr);
 
-	vkDestroyDevice(device.handle(), nullptr);
-
+	device.destroy();
 	surface.destroy();
 	instance.destroy();
 };
@@ -1244,9 +1238,7 @@ void Renderer::drawFrame() {
 	submitInfo.signalSemaphoreCount = 1;
 	submitInfo.pSignalSemaphores = signalSemaphores;
 
-	if (vkQueueSubmit(device.graphicsQueue().handle(), 1, &submitInfo, inFlightFences[currentFrame]) != VK_SUCCESS) {
-		throw std::runtime_error("failed to submit draw command buffer!");
-	}
+	device.graphicsQueue().submit({ submitInfo }, inFlightFences[currentFrame]);
 
 	VkSubpassDependency dependency{};
 	dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
@@ -1270,13 +1262,13 @@ void Renderer::drawFrame() {
 	presentInfo.pImageIndices = &imageIndex;
 	presentInfo.pResults = nullptr; // Optional
 
-	vkQueuePresentKHR(device.presentQueue().handle(), &presentInfo);
+	device.present(&presentInfo);
 
 	currentFrame = (currentFrame + 1) % maxFramesInFlight;
 }
 
 void Renderer::waitIdle() {
-	vkDeviceWaitIdle(device.handle());
+	device.waitIdle();
 }
 
 void Renderer::updateTerrain(TerrainGenerator& generator) {
