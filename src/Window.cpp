@@ -10,17 +10,8 @@ void Window::init() {
 		throw std::runtime_error("Error initialising SDL3: " + (std::string)SDL_GetError());
 	} // Automatically initialises SDL_INIT_EVENTS
 
-	handle = SDL_CreateWindow("Erosion test", 1280, 720, SDL_WINDOW_VULKAN);
-	if (!handle) {
+	handle_ = SDL_CreateWindow(details_.name.c_str(), details_.width, details_.height, SDL_WINDOW_VULKAN);
+	if (!handle_) {
 		throw std::runtime_error("Error creating window: " + (std::string)SDL_GetError());
 	}
-}
-
-void Window::destroy() {
-	SDL_QuitSubSystem(SDL_INIT_VIDEO);
-	SDL_DestroyWindow(handle);
-}
-
-Window::~Window() {
-	destroy();
 }

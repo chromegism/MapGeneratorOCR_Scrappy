@@ -33,9 +33,9 @@ void Camera::down(float by) {
 void Application::init() {
 	camera.orientation = glm::quatLookAt(glm::vec3(1, 0, 0) , glm::vec3(0, 1, 0));
 
-	window.init();
+	window = Window("Terrain generator", 1280, 720);
 	terrainGenerator.updateDetails(settings);
-	renderer.init(window.getHandle(), terrainGenerator);
+	renderer.init(window.handle(), terrainGenerator);
 
 	lastFrameTime = Clock::now();
 }
