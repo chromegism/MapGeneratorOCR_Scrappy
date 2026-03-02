@@ -10,15 +10,14 @@ private:
 
 	void genImageView(VkFormat);
 
-	SwapchainImage(VkDevice _deviceHandle, VkImage _handle, VkImageView _view) :
+	explicit SwapchainImage(VkDevice _deviceHandle, VkImage _handle, VkImageView _view) :
 		deviceHandle_(_deviceHandle), handle_(_handle), view_(_view) {
 	}
-	SwapchainImage(VkDevice _deviceHandle, VkImage _handle, VkFormat _format) :
+	explicit SwapchainImage(VkDevice _deviceHandle, VkImage _handle, VkFormat _format) :
 		deviceHandle_(_deviceHandle), handle_(_handle) {
 		genImageView(_format);
 	}
 
-protected:
 	void setHandles(VkDevice _deviceHandle, VkImage _handle, VkImageView _view) noexcept {
 		deviceHandle_ = _deviceHandle;
 		handle_ = _handle;
@@ -29,7 +28,11 @@ protected:
 		handle_ = VK_NULL_HANDLE;
 		view_ = VK_NULL_HANDLE;
 	}
-
+	void exchangeHandles(VkDevice& _deviceHandle, VkImage& _handle, VkImageView& _view) noexcept {
+		deviceHandle_ = std::exchange(_deviceHandle, VK_NULL_HANDLE);
+		handle_ = std::exchange(_handle, VK_NULL_HANDLE);
+		view_ = std::exchange(_view, VK_NULL_HANDLE);
+	}
 public:
 	static inline SwapchainImage fromImageView(VkDevice _deviceHandle, VkImage _handle, VkImageView _view) {
 		return SwapchainImage(_deviceHandle, _handle, _view);
@@ -39,17 +42,16 @@ public:
 	}
 
 	SwapchainImage(const SwapchainImage&) noexcept = delete;
-	SwapchainImage(SwapchainImage&& other) noexcept {
-		setHandles(other.deviceHandle(), other.handle(), other.view());
-		other.clearHandles();
-	}
+	SwapchainImage(SwapchainImage&& other) noexcept :
+		deviceHandle_(std::exchange(other.deviceHandle_, VK_NULL_HANDLE)),
+		handle_(std::exchange(other.handle_, VK_NULL_HANDLE)),
+		view_(std::exchange(other.view_, VK_NULL_HANDLE)) { }
 	SwapchainImage& operator=(SwapchainImage&& other) noexcept {
 		if (this != &other) {
 			if (isViewValid())
 				destroy();
 
-			setHandles(other.deviceHandle(), other.handle(), other.view());
-			other.clearHandles();
+			exchangeHandles(other.deviceHandle_, other.handle_, other.view_);
 		}
 		return *this;
 	}
