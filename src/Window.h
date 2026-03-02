@@ -13,14 +13,17 @@ private:
 	SDL_Window* handle_ = nullptr;
 
 	void init() {
-		if (SDL_InitSubSystem(SDL_INIT_VIDEO) == false) {
-			throw std::runtime_error("Error initialising SDL3: " + (std::string)SDL_GetError());
-		} // Automatically initialises SDL_INIT_EVENTS
+		if (SDL_InitSubSystem(SDL_INIT_VIDEO) == false) // Automatically initialises SDL_INIT_EVENTS
+			throw std::runtime_error("Error initialising SDL3: " + std::string(SDL_GetError()));
+
+		if (details_.width == 0)
+			throw std::runtime_error("Window width is zero");
+		if (details_.height == 0)
+			throw std::runtime_error("Window height is zero");
 
 		handle_ = SDL_CreateWindow(details_.name.c_str(), details_.width, details_.height, SDL_WINDOW_VULKAN);
-		if (!handle_) {
-			throw std::runtime_error("Error creating window: " + (std::string)SDL_GetError());
-		}
+		if (!handle_)
+			throw std::runtime_error("Error creating window: " + std::string(SDL_GetError()));
 	}
 
 public:
@@ -35,7 +38,7 @@ public:
 	Window() noexcept = default;
 	Window(const Details& _details) : details_(_details) { init(); }
 	Window(const std::string& _name, uint32_t _width, uint32_t _height) : details_({ _name, _width, _height }) { init(); }
-	~Window() { destroy(); }
+	~Window() noexcept { destroy(); }
 
 	Window(const Window&) noexcept = delete; // move only
 	Window(Window&& other) noexcept : handle_(other.handle_), details_(other.details_) {
