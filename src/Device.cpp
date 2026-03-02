@@ -6,18 +6,18 @@
 
 #include "Device.h"
 
-std::vector<VkPhysicalDevice> PhysicalDevice::enumerateDevices() const {
+std::vector<VkPhysicalDevice> PhysicalDevice::enumerateDevices(VkInstance _instance) {
 	uint32_t deviceCount;
-	vkEnumeratePhysicalDevices(instanceHandle_, &deviceCount, nullptr);
+	vkEnumeratePhysicalDevices(_instance, &deviceCount, nullptr);
 
 	std::vector<VkPhysicalDevice> devices(deviceCount);
 	if (deviceCount > 0)
-		vkEnumeratePhysicalDevices(instanceHandle_, &deviceCount, devices.data());
+		vkEnumeratePhysicalDevices(_instance, &deviceCount, devices.data());
 
 	return devices;
 }
 
-VkPhysicalDevice PhysicalDevice::findBestPhysicalDevice(const std::vector<VkPhysicalDevice>& devices, const Conditions& conditions) {
+VkPhysicalDevice PhysicalDevice::findBestPhysicalDevice(const std::vector<VkPhysicalDevice>& devices, VkSurfaceKHR _surface, const Conditions& conditions) {
 	// since gpu heap size can theoretically go up to 64GB (as of writing)
 	// which is 69527932928 (a big number)
 	// the score representing the type needs to be much bigger than this
@@ -28,7 +28,7 @@ VkPhysicalDevice PhysicalDevice::findBestPhysicalDevice(const std::vector<VkPhys
 	uint64_t best_score = 0;
 
 	for (const auto _pDevice : devices) {
-		if (!isDeviceSuitable(_pDevice, conditions)) {
+		if (!isDeviceSuitable(_pDevice, _surface, conditions)) {
 			continue;
 		}
 
@@ -71,7 +71,7 @@ VkPhysicalDevice PhysicalDevice::findBestPhysicalDevice(const std::vector<VkPhys
 	return best_device;
 }
 
-PhysicalDevice::QueueFamilyIndices PhysicalDevice::findQueueFamilies(VkPhysicalDevice device) const {
+PhysicalDevice::QueueFamilyIndices PhysicalDevice::findQueueFamilies(VkPhysicalDevice device, VkSurfaceKHR _surface) {
 	QueueFamilyIndices indices;
 
 	uint32_t queueFamilyCount = 0;
@@ -86,7 +86,7 @@ PhysicalDevice::QueueFamilyIndices PhysicalDevice::findQueueFamilies(VkPhysicalD
 			indices.graphicsFamily = i;
 		}
 		VkBool32 presentSupport = false;
-		vkGetPhysicalDeviceSurfaceSupportKHR(device, i, surfaceHandle_, &presentSupport);
+		vkGetPhysicalDeviceSurfaceSupportKHR(device, i, _surface, &presentSupport);
 		if (presentSupport) {
 			indices.presentFamily = i;
 		}
@@ -122,55 +122,56 @@ bool PhysicalDevice::checkDeviceExtensionSupport(VkPhysicalDevice device, const 
 	return requiredExtensions.empty();
 }
 
-PhysicalDevice::SwapChainSupportDetails PhysicalDevice::querySwapChainSupport(VkPhysicalDevice device) {
+PhysicalDevice::SwapChainSupportDetails PhysicalDevice::querySwapChainSupport(VkPhysicalDevice device, VkSurfaceKHR _surface) {
 	SwapChainSupportDetails details{};
 
-	vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device, surfaceHandle_, &details.capabilities);
+	vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device, _surface, &details.capabilities);
 
 	uint32_t formatCount;
-	vkGetPhysicalDeviceSurfaceFormatsKHR(device, surfaceHandle_, &formatCount, nullptr);
+	vkGetPhysicalDeviceSurfaceFormatsKHR(device, _surface, &formatCount, nullptr);
 
 	if (formatCount != 0) {
 		details.formats.resize(formatCount);
-		vkGetPhysicalDeviceSurfaceFormatsKHR(device, surfaceHandle_, &formatCount, details.formats.data());
+		vkGetPhysicalDeviceSurfaceFormatsKHR(device, _surface, &formatCount, details.formats.data());
 	}
 
 	uint32_t presentModeCount;
-	vkGetPhysicalDeviceSurfacePresentModesKHR(device, surfaceHandle_, &presentModeCount, nullptr);
+	vkGetPhysicalDeviceSurfacePresentModesKHR(device, _surface, &presentModeCount, nullptr);
 
 	if (presentModeCount != 0) {
 		details.presentModes.resize(presentModeCount);
-		vkGetPhysicalDeviceSurfacePresentModesKHR(device, surfaceHandle_, &presentModeCount, details.presentModes.data());
+		vkGetPhysicalDeviceSurfacePresentModesKHR(device, _surface, &presentModeCount, details.presentModes.data());
 	}
 
 	return details;
 }
 
-bool PhysicalDevice::isDeviceSuitable(VkPhysicalDevice device, const Conditions& conditions) {
-	QueueFamilyIndices indices = findQueueFamilies(device);
+bool PhysicalDevice::isDeviceSuitable(VkPhysicalDevice device, VkSurfaceKHR _surface, const Conditions& conditions) {
+	QueueFamilyIndices indices = findQueueFamilies(device, _surface);
 
 	bool extensionsSupported = checkDeviceExtensionSupport(device, conditions);
 
 	bool swapChainAdequate = false;
 	if (extensionsSupported) {
-		SwapChainSupportDetails swapChainSupport = querySwapChainSupport(device);
+		SwapChainSupportDetails swapChainSupport = querySwapChainSupport(device, _surface);
 		swapChainAdequate = !swapChainSupport.formats.empty() && !swapChainSupport.presentModes.empty();
 	}
 
 	return indices.isComplete() && extensionsSupported && swapChainAdequate;
 }
 
-void PhysicalDevice::pickBest() {
-	std::vector<VkPhysicalDevice> devices = enumerateDevices();
+PhysicalDevice PhysicalDevice::pickBest(VkInstance _instance, VkSurfaceKHR _surface) {
+	std::vector<VkPhysicalDevice> devices = enumerateDevices(_instance);
 	if (devices.size() == 0)
 		throw std::runtime_error("No devices supporting Vulkan found!");
 
 	Conditions conditions{};
-	handle_ = findBestPhysicalDevice(devices, conditions);
-	if (handle_ == nullptr) {
+	VkPhysicalDevice deviceHandle = findBestPhysicalDevice(devices, _surface, conditions);
+	if (deviceHandle == nullptr) {
 		throw std::runtime_error("No suitable devices");
 	}
 
-	queueFamilyIndices_ = findQueueFamilies(handle_);
-	swapChainSupportDetails_ = querySwapChainSupport(handle_);
+	PhysicalDevice device(_instance, _surface, deviceHandle);
+
+	return device;
 }

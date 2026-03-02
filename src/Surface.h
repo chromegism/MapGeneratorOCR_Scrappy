@@ -8,10 +8,16 @@
 
 #include "Instance.h"
 
+// RAII wrapper for VkSurfaceKHR
+// 
+// Ownership model:
+//  - Surface owns VkSurfaceKHR
+//  - Instance is non-owning but must outlive Surface
 class Surface {
 private:
 	VkInstance instanceHandle_ = VK_NULL_HANDLE;  // non-owning
 
+	// handle_ == VK_NULL_HANDLE  <=>  no owned surface
 	VkSurfaceKHR handle_ = VK_NULL_HANDLE;
 
 	void setHandles(VkInstance _instanceHandle, VkSurfaceKHR _handle) {
@@ -51,8 +57,8 @@ public:
 
 	void generate(SDL_Window*);
 
-	const VkSurfaceKHR handle() const noexcept { return handle_; }
-	const VkInstance instanceHandle() const noexcept { return instanceHandle_; }
+	VkSurfaceKHR handle() const noexcept { return handle_; }
+	VkInstance instanceHandle() const noexcept { return instanceHandle_; }
 	bool isValid() const noexcept { return handle_ != VK_NULL_HANDLE; }
 
 	void destroy() {
