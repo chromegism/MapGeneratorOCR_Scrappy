@@ -152,7 +152,6 @@ copy /Y "$(ProjectDir)shaders\" "$(TargetDir)shaders\"</Command>
     <ClCompile Include="Surface.cpp" />
     <ClCompile Include="Terrain.cpp" />
     <ClCompile Include="main.cpp" />
-    <ClCompile Include="Window.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="App.h" />

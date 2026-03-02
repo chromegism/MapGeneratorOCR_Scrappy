@@ -43,7 +43,6 @@ set(SOURCES
     src/Perlin.cpp
     src/Render.cpp
     src/Terrain.cpp
-    src/Window.cpp
     src/App.cpp
     src/Device.cpp
     src/Instance.cpp
