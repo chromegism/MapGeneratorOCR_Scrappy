@@ -1,6 +1,7 @@
 #include <iostream>
 #include <algorithm>
 #include <iterator>
+#include <ranges>
 
 #include "Instance.h"
 
@@ -8,12 +9,9 @@ inline std::vector<const char*> stringVectorToCStrVector(const std::vector<std::
 	std::vector<const char*> cstrings{};
 	cstrings.reserve(strings.size());
 
-	std::transform(
-		strings.begin(), strings.end(),
-		std::back_inserter(cstrings),
-		[](const std::string& s) {
-			return s.c_str();
-		}
+	std::ranges::copy(
+    	std::views::transform(strings, [](const std::string& s) { return s.c_str(); }),
+    	std::back_inserter(cstrings)
 	);
 
 	return cstrings;
