@@ -22,6 +22,14 @@
 // Other stuff
 #include <limits>
 
+// C standard headers
+#include <cstddef>
+#include <cstdint>
+#include <cstdlib>
+#include <cstdio>
+#include <cstring>
+#include <cassert>
+
 // 3rd party tools
 #include <vulkan/vulkan.h>
 #include <SDL3/SDL.h>
