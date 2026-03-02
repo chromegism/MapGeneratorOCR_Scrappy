@@ -6,6 +6,9 @@
 
 #include <vulkan/vulkan_core.h>
 
+#include "Instance.h"
+#include "Surface.h"
+
 class PhysicalDevice {
 private:
 	VkInstance instanceHandle_ = VK_NULL_HANDLE;
@@ -61,6 +64,11 @@ public:
 	PhysicalDevice(const PhysicalDevice&) = delete; // move only
 	PhysicalDevice(VkInstance _instanceHandle, VkSurfaceKHR _surfaceHandle) :
 		instanceHandle_(_instanceHandle), surfaceHandle_(_surfaceHandle)
+	{
+		pickBest();
+	}
+	PhysicalDevice(const Instance& _instance, const Surface& _surface) :
+		instanceHandle_(_instance.handle()), surfaceHandle_(_surface.handle())
 	{
 		pickBest();
 	}

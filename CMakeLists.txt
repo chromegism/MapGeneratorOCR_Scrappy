@@ -45,6 +45,9 @@ set(SOURCES
     src/Terrain.cpp
     src/Window.cpp
     src/App.cpp
+    src/Device.cpp
+    src/Instance.cpp
+    src/Surface.cpp
 )
 
 message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")

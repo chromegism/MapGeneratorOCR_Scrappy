@@ -79,7 +79,7 @@ void Renderer::createSurface(SDL_Window* window) {
 }
 
 void Renderer::pickPhysicalDevice() {
-	physicalDevice = PhysicalDevice(instance.handle(), surface.handle());
+	physicalDevice = PhysicalDevice(instance, surface);
 }
 
 void Renderer::createLogicalDevice() {
