@@ -19,6 +19,11 @@ private:
 		handle_ = _handle;
 	}
 
+	void clearHandles() {
+		instanceHandle_ = VK_NULL_HANDLE;
+		handle_ = VK_NULL_HANDLE;
+	}
+
 public:
 	Surface() = default;
 	Surface(VkInstance _instanceHandle, SDL_Window* _windowHandle) :
@@ -49,11 +54,6 @@ public:
 	const VkSurfaceKHR handle() const noexcept { return handle_; }
 	const VkInstance instanceHandle() const noexcept { return instanceHandle_; }
 	bool isValid() const noexcept { return handle_ != VK_NULL_HANDLE; }
-
-	void clearHandles() {
-		instanceHandle_ = VK_NULL_HANDLE;
-		handle_ = VK_NULL_HANDLE;
-	}
 
 	void destroy() {
 		if (isValid() && instanceHandle_ != VK_NULL_HANDLE) {

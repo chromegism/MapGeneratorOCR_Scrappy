@@ -33,14 +33,6 @@ void Renderer::init(SDL_Window* window, TerrainGenerator& generator) {
 	createInstance();
 	createSurface(window);
 	pickPhysicalDevice();
-
-	DEBUG_RUN {
-		VkPhysicalDeviceProperties props{};
-		vkGetPhysicalDeviceProperties(physicalDevice, &props);
-
-		std::cout << "Selected device name: " << props.deviceName << ", id: " << props.deviceID << ", api version: " << props.apiVersion << std::endl;
-	}
-
 	createLogicalDevice();
 	createSwapChain(window);
 	createSwapChainViews();
@@ -86,143 +78,17 @@ void Renderer::createSurface(SDL_Window* window) {
 	DEBUG_LOG << "Successfully created Vulkan surface" << std::endl;
 }
 
-Renderer::QueueFamilyIndices Renderer::findQueueFamilies(VkPhysicalDevice _pDevice) {
-	QueueFamilyIndices indices;
-
-	uint32_t queueFamilyCount = 0;
-	vkGetPhysicalDeviceQueueFamilyProperties(_pDevice, &queueFamilyCount, nullptr);
-
-	std::vector<VkQueueFamilyProperties> queueFamilies(queueFamilyCount);
-	vkGetPhysicalDeviceQueueFamilyProperties(_pDevice, &queueFamilyCount, queueFamilies.data());
-
-	int i = 0;
-	for (const auto& queueFamily : queueFamilies) {	
-		if (queueFamily.queueFlags & VK_QUEUE_GRAPHICS_BIT) {
-			indices.graphicsFamily = i;
-		}
-		VkBool32 presentSupport = false;
-		vkGetPhysicalDeviceSurfaceSupportKHR(_pDevice, i, surface.handle(), &presentSupport);
-		if (presentSupport) {
-			indices.presentFamily = i;
-		}
-
-		if (indices.isComplete()) break;
-
-		i++;
-	}
-
-	return indices;
-}
-
-bool Renderer::checkDeviceExtensionSupport(VkPhysicalDevice _pDevice) {
-	uint32_t extensionCount;
-	vkEnumerateDeviceExtensionProperties(_pDevice, nullptr, &extensionCount, nullptr);
-
-	std::vector<VkExtensionProperties> availableExtensions(extensionCount);
-	vkEnumerateDeviceExtensionProperties(_pDevice, nullptr, &extensionCount, availableExtensions.data());
-
-	std::set<std::string> requiredExtensions(deviceExtensions.begin(), deviceExtensions.end());
-
-	for (const auto& extension : availableExtensions) {
-		requiredExtensions.erase(extension.extensionName);
-	}
-
-	return requiredExtensions.empty();
-}
-
-bool Renderer::isDeviceSuitable(VkPhysicalDevice _pDevice) {
-	QueueFamilyIndices indices = findQueueFamilies(_pDevice);
-
-	bool extensionsSupported = checkDeviceExtensionSupport(_pDevice);
-
-	bool swapChainAdequate = false;
-	if (extensionsSupported) {
-		SwapChainSupportDetails swapChainSupport = querySwapChainSupport(_pDevice);
-		swapChainAdequate = !swapChainSupport.formats.empty() && !swapChainSupport.presentModes.empty();
-	}
-
-	return indices.isComplete() && extensionsSupported && swapChainAdequate;
-}
-
-VkPhysicalDevice Renderer::findBestPhysicalDevice(const std::vector<VkPhysicalDevice>& devices) {
-	// since gpu heap size can theoretically go up to 64GB (as of writing)
-	// which is 69527932928 (a big number)
-	// the score representing the type needs to be much bigger than this
-	constexpr const unsigned long long int MAX_MEMORY_SIZE_GB = 64;
-	constexpr const unsigned long long int MAX_MEMORY_SIZE = MAX_MEMORY_SIZE_GB * 1024ULL * 1024ULL * 1024ULL;
-
-	VkPhysicalDevice best_device = nullptr;
-	unsigned long long best_score = 0;
-
-	for (const auto _pDevice : devices) {
-		if (!isDeviceSuitable(_pDevice)) {
-			continue;
-		}
-
-		unsigned long long score = 0;
-
-		auto props = VkPhysicalDeviceProperties{};
-		vkGetPhysicalDeviceProperties(_pDevice, &props);
-
-		if (props.deviceType == VkPhysicalDeviceType::VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU) {
-			score += MAX_MEMORY_SIZE * 1000; // best case so 1000 score
-		}
-		else if (props.deviceType == VkPhysicalDeviceType::VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU) {
-			score += MAX_MEMORY_SIZE * 100; // not the best but better than cpu so 100 score
-		}
-		else if (props.deviceType == VkPhysicalDeviceType::VK_PHYSICAL_DEVICE_TYPE_CPU) {
-			score += 0; // worst case
-		}
-		else {
-			continue; // not usable
-		}
-
-		auto memoryProps = VkPhysicalDeviceMemoryProperties{};
-		vkGetPhysicalDeviceMemoryProperties(_pDevice, &memoryProps);
-
-		auto heapsPointer = memoryProps.memoryHeaps;
-		auto heaps = std::vector<VkMemoryHeap>(heapsPointer, heapsPointer + memoryProps.memoryHeapCount);
-
-		for (const auto& heap : heaps) {
-			if (heap.flags & VkMemoryHeapFlagBits::VK_MEMORY_HEAP_DEVICE_LOCAL_BIT) {
-				score += (unsigned long)heap.size; // the heap size in bytes
-			}
-		}
-
-		if (score > best_score) {
-			best_score = score;
-			best_device = _pDevice;
-		}
-	}
-
-	return best_device;
-}
-
 void Renderer::pickPhysicalDevice() {
-	uint32_t device_count = 0;
-	vkEnumeratePhysicalDevices(instance.handle(), &device_count, nullptr);
-
-	if (device_count == 0) {
-		throw std::runtime_error("Failed to find a Vulkan-compatible device");
-	}
-
-	std::vector<VkPhysicalDevice> devices(device_count);
-	vkEnumeratePhysicalDevices(instance.handle(), &device_count, devices.data());
-
-	physicalDevice = findBestPhysicalDevice(devices);
-
-	if (physicalDevice == nullptr) {
-		throw std::runtime_error("No suitable devices");
-	}
+	physicalDevice = PhysicalDevice(instance.handle(), surface.handle());
 }
 
 void Renderer::createLogicalDevice() {
 	uint32_t queue_family_count = 0;
-	vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice, &queue_family_count, nullptr);
+	vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice.handle(), &queue_family_count, nullptr);
 	std::vector<VkQueueFamilyProperties> queueFamilies(queue_family_count);
-	vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice, &queue_family_count, queueFamilies.data());
+	vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice.handle(), &queue_family_count, queueFamilies.data());
 
-	QueueFamilyIndices indices = findQueueFamilies(physicalDevice);
+	PhysicalDevice::QueueFamilyIndices indices = physicalDevice.queueFamilyIndices();
 	std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
 	std::set<uint32_t> uniqueQueueFamilies = { indices.graphicsFamily.value(), indices.presentFamily.value() };
 
@@ -245,7 +111,7 @@ void Renderer::createLogicalDevice() {
 	deviceCreateInfo.enabledExtensionCount = static_cast<uint32_t>(deviceExtensions.size());
 	deviceCreateInfo.ppEnabledExtensionNames = deviceExtensions.data();
 
-	if (vkCreateDevice(physicalDevice, &deviceCreateInfo, nullptr, &device) != VK_SUCCESS) {
+	if (vkCreateDevice(physicalDevice.handle(), &deviceCreateInfo, nullptr, &device) != VK_SUCCESS) {
 		throw std::runtime_error("Failed to create logical device");
 	}
 	DEBUG_ELSE {
@@ -254,30 +120,6 @@ void Renderer::createLogicalDevice() {
 
 	vkGetDeviceQueue(device, indices.graphicsFamily.value(), 0, &graphicsQueue);
 	vkGetDeviceQueue(device, indices.presentFamily.value(), 0, &presentQueue);
-}
-
-Renderer::SwapChainSupportDetails Renderer::querySwapChainSupport(VkPhysicalDevice _pDevice) {
-	SwapChainSupportDetails details;
-
-	vkGetPhysicalDeviceSurfaceCapabilitiesKHR(_pDevice, surface.handle(), &details.capabilities);
-
-	uint32_t formatCount;
-	vkGetPhysicalDeviceSurfaceFormatsKHR(_pDevice, surface.handle(), &formatCount, nullptr);
-
-	if (formatCount != 0) {
-		details.formats.resize(formatCount);
-		vkGetPhysicalDeviceSurfaceFormatsKHR(_pDevice, surface.handle(), &formatCount, details.formats.data());
-	}
-
-	uint32_t presentModeCount;
-	vkGetPhysicalDeviceSurfacePresentModesKHR(_pDevice, surface.handle(), &presentModeCount, nullptr);
-
-	if (presentModeCount != 0) {
-		details.presentModes.resize(presentModeCount);
-		vkGetPhysicalDeviceSurfacePresentModesKHR(_pDevice, surface.handle(), &presentModeCount, details.presentModes.data());
-	}
-
-	return details;
 }
 
 VkSurfaceFormatKHR Renderer::chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& availableFormats) {
@@ -324,7 +166,7 @@ VkExtent2D Renderer::chooseSwapExtent(SDL_Window* window, const VkSurfaceCapabil
 }
 
 void Renderer::createSwapChain(SDL_Window* window) {
-	SwapChainSupportDetails swapChainSupport = querySwapChainSupport(physicalDevice);
+	PhysicalDevice::SwapChainSupportDetails swapChainSupport = physicalDevice.swapChainSupportDetails();
 
 	VkSurfaceFormatKHR surfaceFormat = chooseSwapSurfaceFormat(swapChainSupport.formats);
 	VkPresentModeKHR presentMode = chooseSwapPresentMode(swapChainSupport.presentModes);
@@ -345,7 +187,7 @@ void Renderer::createSwapChain(SDL_Window* window) {
 	createInfo.imageArrayLayers = 1;
 	createInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
 
-	QueueFamilyIndices indices = findQueueFamilies(physicalDevice);
+	PhysicalDevice::QueueFamilyIndices indices = physicalDevice.queueFamilyIndices();
 	uint32_t queueFamilyIndices[] = { indices.graphicsFamily.value(), indices.presentFamily.value() };
 
 	if (indices.graphicsFamily != indices.presentFamily) {
@@ -726,7 +568,7 @@ void Renderer::createFramebuffers() {
 }
 
 void Renderer::createCommandPool() {
-	QueueFamilyIndices queueFamilyIndices = findQueueFamilies(physicalDevice);
+	PhysicalDevice::QueueFamilyIndices queueFamilyIndices = physicalDevice.queueFamilyIndices();
 
 	VkCommandPoolCreateInfo poolInfo{};
 	poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
@@ -891,7 +733,7 @@ void Renderer::transitionImageLayout(VkImage image, VkFormat format, VkImageLayo
 VkFormat Renderer::findSupportedFormat(const std::vector<VkFormat>& candidates, VkImageTiling tiling, VkFormatFeatureFlags features) {
 	for (VkFormat format : candidates) {
 		VkFormatProperties props;
-		vkGetPhysicalDeviceFormatProperties(physicalDevice, format, &props);
+		vkGetPhysicalDeviceFormatProperties(physicalDevice.handle(), format, &props);
 
 		if (tiling == VK_IMAGE_TILING_LINEAR && (props.linearTilingFeatures & features) == features) {
 			return format;
@@ -1122,7 +964,7 @@ void Renderer::copyBufferToImage(VkBuffer srcBuffer, VkImage dstImage, uint32_t 
 
 void Renderer::createUniformBuffers() {
 	VkPhysicalDeviceProperties props;
-	vkGetPhysicalDeviceProperties(physicalDevice, &props);
+	vkGetPhysicalDeviceProperties(physicalDevice.handle(), &props);
 
 	size_t alignment = props.limits.minUniformBufferOffsetAlignment;
 
@@ -1235,7 +1077,7 @@ void Renderer::createDescriptorSets() {
 
 uint32_t Renderer::findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties) {
 	VkPhysicalDeviceMemoryProperties memProperties;
-	vkGetPhysicalDeviceMemoryProperties(physicalDevice, &memProperties);
+	vkGetPhysicalDeviceMemoryProperties(physicalDevice.handle(), &memProperties);
 
 	for (uint32_t i = 0; i < memProperties.memoryTypeCount; i++) {
 		if ((typeFilter & (1 << i)) && (memProperties.memoryTypes[i].propertyFlags & properties) == properties) {

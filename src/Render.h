@@ -16,6 +16,7 @@
 #include "Terrain.h"
 #include "Instance.h"
 #include "Surface.h"
+#include "Device.h"
 
 struct MVPBufferObject {
 	glm::mat4 model;
@@ -72,7 +73,7 @@ private:
 
 	Instance instance;
 	Surface surface;
-	VkPhysicalDevice physicalDevice;
+	PhysicalDevice physicalDevice;
 	VkDevice device;
 	VkQueue graphicsQueue;
 	VkQueue presentQueue;
