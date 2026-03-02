@@ -44,15 +44,18 @@ public:
 		std::optional<uint32_t> presentFamily;
 
 		bool isComplete() const { return graphicsFamily.has_value() && presentFamily.has_value(); }
-	} queueFamilyIndices_;
+	};
 
 	struct SwapChainSupportDetails {
 		VkSurfaceCapabilitiesKHR capabilities{};
 		std::vector<VkSurfaceFormatKHR> formats;
 		std::vector<VkPresentModeKHR> presentModes;
-	} swapChainSupportDetails_;
+	};
 
 private:
+	QueueFamilyIndices queueFamilyIndices_;
+	SwapChainSupportDetails swapChainSupportDetails_;
+
 	static std::vector<VkPhysicalDevice> enumerateDevices(VkInstance _instance);
 	static VkPhysicalDevice findBestPhysicalDevice(const std::vector<VkPhysicalDevice>&, VkSurfaceKHR, const Conditions&);
 
@@ -119,7 +122,7 @@ public:
 	void clearHandles() noexcept {
 		deviceHandle_ = VK_NULL_HANDLE;
 		handle_ = VK_NULL_HANDLE;
-		uint32_t familyIndex = 0;
+		familyIndex_ = 0;
 	}
 
 	Queue() noexcept = default;
@@ -181,6 +184,7 @@ public:
 		}
 		return *this;
 	}
+	~LogicalDevice() { destroy(); }
 
 	VkDevice handle() const noexcept { return handle_; }
 	const Queue& graphicsQueue() const noexcept { return graphicsQueue_; }
