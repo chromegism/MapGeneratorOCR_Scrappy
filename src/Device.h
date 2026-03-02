@@ -105,6 +105,7 @@ public:
 	bool isValid() const noexcept { return handle_ != VK_NULL_HANDLE; }
 
 	static PhysicalDevice pickBest(VkInstance, VkSurfaceKHR);
+	static PhysicalDevice pickBest(const Instance&, const Surface&);
 };
 
 class Queue {

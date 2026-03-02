@@ -24,7 +24,7 @@ std::vector<char> readFileCharVector(const std::string& filename) {
 void Renderer::init(SDL_Window* window, TerrainGenerator& generator) {
 	createInstance();
 	surface = Surface(instance.handle(), window);
-	physicalDevice = PhysicalDevice::pickBest(instance.handle(), surface.handle());
+	physicalDevice = PhysicalDevice::pickBest(instance, surface);
 	device = LogicalDevice(physicalDevice);
 
 	createSwapChain(window);

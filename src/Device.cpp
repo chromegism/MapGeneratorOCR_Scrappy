@@ -173,6 +173,10 @@ PhysicalDevice PhysicalDevice::pickBest(VkInstance _instance, VkSurfaceKHR _surf
 	return device;
 }
 
+PhysicalDevice PhysicalDevice::pickBest(const Instance& _instance, const Surface& _surface) {
+	return pickBest(_instance.handle(), _surface.handle());
+}
+
 LogicalDevice::LogicalDevice(const PhysicalDevice& physicalDevice, const PhysicalDevice::Conditions& conditions) {
 	PhysicalDevice::QueueFamilyIndices indices = physicalDevice.queueFamilyIndices();
 	std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
