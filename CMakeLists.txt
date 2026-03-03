@@ -49,6 +49,7 @@ set(SOURCES
     src/Surface.cpp
     src/Tools.cpp
     src/Image.cpp
+    src/Framebuffer.cpp
 )
 
 message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
