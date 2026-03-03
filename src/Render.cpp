@@ -31,7 +31,7 @@ void Renderer::init(SDL_Window* window, TerrainGenerator& generator) {
 	createDescriptorSetLayout();
 	createGraphicsPipeline();
 	createCommandPool();
-	depthImage = DepthImage::fromDevice(device, swapChainExtent.width, swapChainExtent.height, DepthImage::findDepthFormat(physicalDevice));
+	depthImage = Image::createDepth(device, swapChainExtent.width, swapChainExtent.height, Image::findDepthFormat(physicalDevice));
 	createFramebuffers();
 	createVertexBuffer(generator);
 	createIndexBuffer(generator);
@@ -411,7 +411,7 @@ void Renderer::createRenderPass() {
 	colorAttachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
 
 	VkAttachmentDescription depthAttachment{};
-	depthAttachment.format = DepthImage::findDepthFormat(physicalDevice);
+	depthAttachment.format = Image::findDepthFormat(physicalDevice);
 	depthAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
 	depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
 	depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;

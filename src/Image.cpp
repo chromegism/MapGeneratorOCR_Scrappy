@@ -33,7 +33,7 @@ void SwapchainImage::genImageView(VkFormat _format) {
 	view_ = generateImageView(deviceHandle_, handle_, _format, VK_IMAGE_ASPECT_COLOR_BIT);
 }
 
-void DepthImage::genImage(VkPhysicalDevice _physicalDevice, uint32_t width, uint32_t height, VkFormat _format) {
+void Image::genImage(VkPhysicalDevice _physicalDevice, uint32_t width, uint32_t height, VkFormat format, VkImageUsageFlags usage, VkSampleCountFlagBits samples) {
 	VkImageCreateInfo imageInfo{};
 	imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
 	imageInfo.imageType = VK_IMAGE_TYPE_2D;
@@ -42,11 +42,11 @@ void DepthImage::genImage(VkPhysicalDevice _physicalDevice, uint32_t width, uint
 	imageInfo.extent.depth = 1;
 	imageInfo.mipLevels = 1;
 	imageInfo.arrayLayers = 1;
-	imageInfo.format = _format;
+	imageInfo.format = format;
 	imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
 	imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-	imageInfo.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
-	imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+	imageInfo.usage = usage;
+	imageInfo.samples = samples;
 	imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
 	if (vkCreateImage(deviceHandle_, &imageInfo, nullptr, &handle_) != VK_SUCCESS) {
@@ -68,6 +68,6 @@ void DepthImage::genImage(VkPhysicalDevice _physicalDevice, uint32_t width, uint
 	vkBindImageMemory(deviceHandle_, handle_, memory_, 0);
 }
 
-void DepthImage::genImageView(VkFormat _format) {
-	view_ = generateImageView(deviceHandle_, handle_, _format, VK_IMAGE_ASPECT_DEPTH_BIT);
+void Image::genImageView(VkFormat _format, VkImageAspectFlags _aspectFlags) {
+	view_ = generateImageView(deviceHandle_, handle_, _format, _aspectFlags);
 }
