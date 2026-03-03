@@ -3,58 +3,71 @@
 #include <vulkan/vulkan.h>
 
 class Framebuffer {
-	VkDevice device_ = VK_NULL_HANDLE;
-	VkImageView swapView_ = VK_NULL_HANDLE;
-	VkImageView depthView_ = VK_NULL_HANDLE;
-	VkRenderPass renderPass_ = VK_NULL_HANDLE;
-	VkFramebuffer handle_ = VK_NULL_HANDLE;
+	VkDevice device_ = VK_NULL_HANDLE;			// non owning
+	VkImageView colorView_ = VK_NULL_HANDLE;		// non owning
+	VkImageView depthView_ = VK_NULL_HANDLE;	// non owning
+	VkRenderPass renderPass_ = VK_NULL_HANDLE;	// non owning
+	VkFramebuffer handle_ = VK_NULL_HANDLE;		// owning
 
-	void exchangeHandles(VkDevice& _device, VkImageView& _swapView, VkImageView& _depthView, VkRenderPass& _renderPass, VkFramebuffer& _handle) noexcept {
+	void exchangeHandles(VkDevice& _device, VkImageView& _colorView, VkImageView& _depthView, VkRenderPass& _renderPass, VkFramebuffer& _handle) noexcept {
 		device_ = std::exchange(_device, VK_NULL_HANDLE);
-		swapView_ = std::exchange(_swapView, VK_NULL_HANDLE);
+		colorView_ = std::exchange(_colorView, VK_NULL_HANDLE);
 		depthView_ = std::exchange(_depthView, VK_NULL_HANDLE);
 		renderPass_ = std::exchange(_renderPass, VK_NULL_HANDLE);
 		handle_ = std::exchange(_handle, VK_NULL_HANDLE);
 	}
 	void clearHandles() noexcept {
 		device_ = VK_NULL_HANDLE;
-		swapView_ = VK_NULL_HANDLE;
+		colorView_ = VK_NULL_HANDLE;
 		depthView_ = VK_NULL_HANDLE;
 		renderPass_ = VK_NULL_HANDLE;
 		handle_ = VK_NULL_HANDLE;
 	}
 
-	void genFramebuffer(uint32_t width, uint32_t height);
+public:
+	struct FramebufferCreateInfo {
+		uint32_t width;
+		uint32_t height;
+		VkImageView colorView;
+		VkImageView depthView;
+		VkRenderPass renderPass;
+	};
 
-	Framebuffer(VkDevice _device, VkImageView _swapView, VkImageView _depthView, VkRenderPass _renderPass, uint32_t width, uint32_t height) :
-		device_(_device), swapView_(_swapView), depthView_(_depthView), renderPass_(_renderPass) 
+private:
+	void genFramebuffer(FramebufferCreateInfo createInfo);
+
+	Framebuffer(VkDevice _device, FramebufferCreateInfo createInfo) :
+		device_(_device), colorView_(createInfo.colorView), depthView_(createInfo.depthView), renderPass_(createInfo.renderPass)
 	{
-		genFramebuffer(width, height);
+		genFramebuffer(createInfo);
 	}
 
 public:
-	static Framebuffer create(VkDevice _device, VkImageView _swapView, VkImageView _depthView, VkRenderPass _renderPass, uint32_t width, uint32_t height) {
-		return Framebuffer(_device, _swapView, _depthView, _renderPass, width, height);
+	static Framebuffer createDefaultSwap(VkDevice _device, VkImageView _colorView, VkImageView _depthView, VkRenderPass _renderPass, uint32_t width, uint32_t height) {
+		return Framebuffer(_device, { width, height, _colorView, _depthView, _renderPass });
+	}
+	static Framebuffer createDefaultSwap(VkDevice _device, FramebufferCreateInfo createInfo) {
+		return Framebuffer(_device, createInfo);
 	}
 
 	Framebuffer() noexcept = default;
 	Framebuffer(const Framebuffer&) noexcept = delete; // move only
-	Framebuffer(Framebuffer&& other) {
-		exchangeHandles(other.device_, other.swapView_, other.depthView_, other.renderPass_, other.handle_);
+	Framebuffer(Framebuffer&& other) noexcept {
+		exchangeHandles(other.device_, other.colorView_, other.depthView_, other.renderPass_, other.handle_);
 		other.clearHandles();
 	}
-	Framebuffer& operator=(Framebuffer&& other) {
+	Framebuffer& operator=(Framebuffer&& other) noexcept {
 		if (this != &other) {
 			destroy();
 
-			exchangeHandles(other.device_, other.swapView_, other.depthView_, other.renderPass_, other.handle_);
+			exchangeHandles(other.device_, other.colorView_, other.depthView_, other.renderPass_, other.handle_);
 			other.clearHandles();
 		}
 		return *this;
 	}
 
 	VkDevice device() const noexcept { return device_; }
-	VkImageView swapView() const noexcept { return swapView_; }
+	VkImageView colorView() const noexcept { return colorView_; }
 	VkImageView depthView() const noexcept { return depthView_; }
 	VkRenderPass renderPass() const noexcept { return renderPass_; }
 	VkFramebuffer handle() const noexcept { return handle_; }
@@ -63,7 +76,7 @@ public:
 	void destroy() noexcept {
 		if (isValid()) {
 			vkDestroyFramebuffer(device_, handle_, nullptr);
-			clearHandles();
 		}
+		clearHandles();
 	}
 };

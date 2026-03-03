@@ -462,7 +462,7 @@ void Renderer::createFramebuffers() {
 	swapChainFramebuffers.resize(swapChainImages.size());
 
 	for (size_t i = 0; i < swapChainImages.size(); i++) {
-		swapChainFramebuffers.at(i) = Framebuffer::create(
+		swapChainFramebuffers.at(i) = Framebuffer::createDefaultSwap(
 			device.handle(), swapChainImages.at(i).view(), 
 			depthImage.view(), renderPass, 
 			swapChainExtent.width, swapChainExtent.height

@@ -3,19 +3,19 @@
 #include "Framebuffer.h"
 #include "Tools.h"
 
-void Framebuffer::genFramebuffer(uint32_t width, uint32_t height) {
+void Framebuffer::genFramebuffer(FramebufferCreateInfo createInfo) {
 	std::array<VkImageView, 2> attachments = {
-			swapView_,
-			depthView_
+			createInfo.colorView,
+			createInfo.depthView
 	};
 
 	VkFramebufferCreateInfo framebufferInfo{};
 	framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
-	framebufferInfo.renderPass = renderPass_;
+	framebufferInfo.renderPass = createInfo.renderPass;
 	framebufferInfo.attachmentCount = static_cast<uint32_t>(attachments.size());
 	framebufferInfo.pAttachments = attachments.data();
-	framebufferInfo.width = width;
-	framebufferInfo.height = height;
+	framebufferInfo.width = createInfo.width;
+	framebufferInfo.height = createInfo.height;
 	framebufferInfo.layers = 1;
 
 	VkResult error_code = vkCreateFramebuffer(device_, &framebufferInfo, nullptr, &handle_);
