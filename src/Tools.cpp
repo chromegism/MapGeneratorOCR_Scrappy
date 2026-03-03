@@ -71,7 +71,7 @@ std::string vkResultToString(VkResult error_code) {
 }
 
 void handleVkResult(VkResult error_code, std::string error_msg) {
-	if (error_code != VK_SUCCESS) {
+	if (error_code != VK_SUCCESS && error_code != VK_SUBOPTIMAL_KHR) {
 		throw std::runtime_error(
 			error_msg + " - error code: " + vkResultToString(error_code)
 		);

@@ -1,11 +1,33 @@
-#include <iostream>
-#include <thread>
-#include <chrono>
+#include "pch.h"
 
 #include "MapSettings.h"
 #include "Perlin.h"
 #include "Terrain.h"
 
+std::vector<float> make_xs(uint32_t width, uint32_t height) {
+    std::vector<float> arr(width * height);
+    float inv_width = 1.f / width;
+
+    // fill first block
+    for (size_t i = 0; i < width; ++i)
+        arr[i] = i * inv_width;
+
+    // repeat m times
+    for (size_t j = 1; j < height; ++j)
+        std::memcpy(&arr[j * width], &arr[0], width * sizeof(float));
+
+    return arr;
+}
+
+std::vector<float> make_ys(uint32_t width, uint32_t height, uint32_t max_height) {
+    std::vector<float> arr(width * height);
+    float inv_width = 1.f / max_height;
+
+    for (size_t j = 0; j < height; ++j)
+        std::fill(arr.begin() + j * width, arr.begin() + (j + 1) * width, j * inv_width);
+
+    return arr;
+}
 
 void TerrainGenerator::genTerrainHeightsInto(float* buffer) const {
     const float invW = 1.0f / details.width;
@@ -19,6 +41,9 @@ void TerrainGenerator::genTerrainHeightsInto(float* buffer) const {
 
     uint32_t rowsPerThread = details.height / threadCount;
 
+    std::vector<float> xs = make_xs(details.width, rowsPerThread);
+    std::vector<float> ys = make_ys(details.width, rowsPerThread, details.height);
+
     for (uint32_t t = 0; t < threadCount; t++) {
         uint32_t startRow = t * rowsPerThread;
         uint32_t endRow = (t == threadCount - 1)
@@ -27,6 +52,7 @@ void TerrainGenerator::genTerrainHeightsInto(float* buffer) const {
 
         threads.emplace_back([&, startRow, endRow]() {
 
+            
             for (uint32_t y = startRow; y < endRow; y++) {
                 const float fy = y * invH;
 
@@ -35,8 +61,9 @@ void TerrainGenerator::genTerrainHeightsInto(float* buffer) const {
                         perlin.index(x * invW, fy);
                 }
             }
+            //perlin.batch_index_simd(xs.data(), ys.data(), startRow * invH, buffer + startRow * details.width, rowsPerThread * details.width);
 
-            });
+        });
     }
 
     for (auto& th : threads)
@@ -118,6 +145,8 @@ TerrainData TerrainGenerator::genTerrain() {
 	terrain.heights = genTerrainHeights();
     terrain.triangleIndices = genTriangleIndices();
 
+    perlin.clear();
+
     return terrain;
 }
 
@@ -133,6 +162,8 @@ void TerrainGenerator::genTerrainInto(float* buffer) {
     perlin.regenerate();
 
     genTerrainHeightsInto(buffer);
+
+    perlin.clear();
 }
 
 uint32_t TerrainGenerator::calcIndicesLength() const {

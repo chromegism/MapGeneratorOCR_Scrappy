@@ -9,6 +9,7 @@
 #include <optional>
 #include <array>
 #include <chrono>
+#include <random>
 
 // Algorithms/ranges (widely used)
 #include <algorithm>
@@ -21,6 +22,7 @@
 
 // Other stuff
 #include <limits>
+#include <numeric>
 
 // C standard headers
 #include <cstddef>
@@ -29,6 +31,9 @@
 #include <cstdio>
 #include <cstring>
 #include <cassert>
+
+// AVX headers
+#include <immintrin.h>
 
 // 3rd party tools
 #include <vulkan/vulkan.h>
