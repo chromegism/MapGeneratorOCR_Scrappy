@@ -46,8 +46,7 @@ public:
 	}
 	Window& operator=(Window&& other) noexcept {
 		if (this != &other) {
-			if (handle_)
-				destroy();
+			destroy();
 
 			handle_ = other.handle();
 			details_ = other.details();

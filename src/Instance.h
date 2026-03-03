@@ -53,8 +53,7 @@ public:
 	// This took quite literally 6 hours of debugging to catch
 	Instance& operator=(Instance&& other) noexcept {
 		if (this != &other) {
-			if (handle_)
-				destroy();
+			destroy();
 
 			handle_ = other.handle();
 			other.handle_ = VK_NULL_HANDLE;

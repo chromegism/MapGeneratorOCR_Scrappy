@@ -70,8 +70,7 @@ public:
 	}
 	Image& operator=(Image&& other) noexcept {
 		if (this != &other) {
-			if (isValid())
-				destroy();
+			destroy();
 
 			// Make sure other object's handles are empty to avoid premature destruction of vulkan objects
 			exchangeHandles(other.deviceHandle_, other.handle_, other.memory_, other.view_, other.format_);
@@ -160,8 +159,7 @@ public:
 	}
 	SwapchainImage& operator=(SwapchainImage&& other) noexcept {
 		if (this != &other) {
-			if (isViewValid())
-				destroy();
+			destroy();
 
 			exchangeHandles(other.deviceHandle_, other.handle_, other.view_);
 		}

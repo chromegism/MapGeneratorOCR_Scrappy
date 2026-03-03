@@ -45,8 +45,7 @@ public:
 	// Look at Instance.h for reasoning of this function
 	Surface& operator=(Surface&& other) noexcept {
 		if (this != &other) {
-			if (handle_)
-				destroy();
+			destroy();
 
 			setHandles(other.instanceHandle(), other.handle());
 			other.clearHandles();

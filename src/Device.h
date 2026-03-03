@@ -180,8 +180,7 @@ public:
 	}
 	LogicalDevice& operator=(LogicalDevice&& other) noexcept {
 		if (this != &other) {
-			if (isValid())
-				destroy();
+			destroy();
 
 			setHandles(other.physicalDeviceHandle(), other.handle(), other.graphicsQueue(), other.presentQueue());
 			other.clearHandles();
