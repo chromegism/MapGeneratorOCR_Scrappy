@@ -33,7 +33,7 @@ void SwapchainImage::genImageView(VkFormat _format) {
 	view_ = generateImageView(deviceHandle_, handle_, _format, VK_IMAGE_ASPECT_COLOR_BIT);
 }
 
-void Image::genImage(VkPhysicalDevice _physicalDevice, uint32_t width, uint32_t height, VkFormat format, VkImageUsageFlags usage, VkSampleCountFlagBits samples) {
+void Image::genImage(VkPhysicalDevice _physicalDevice, uint32_t width, uint32_t height, VkImageUsageFlags usage, VkSampleCountFlagBits samples) {
 	VkImageCreateInfo imageInfo{};
 	imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
 	imageInfo.imageType = VK_IMAGE_TYPE_2D;
@@ -42,16 +42,15 @@ void Image::genImage(VkPhysicalDevice _physicalDevice, uint32_t width, uint32_t 
 	imageInfo.extent.depth = 1;
 	imageInfo.mipLevels = 1;
 	imageInfo.arrayLayers = 1;
-	imageInfo.format = format;
+	imageInfo.format = format_;
 	imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
 	imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 	imageInfo.usage = usage;
 	imageInfo.samples = samples;
 	imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
-	if (vkCreateImage(deviceHandle_, &imageInfo, nullptr, &handle_) != VK_SUCCESS) {
-		throw std::runtime_error("failed to create image!");
-	}
+	VkResult error_code = vkCreateImage(deviceHandle_, &imageInfo, nullptr, &handle_);
+	handleVkResult(error_code, "Failed to create image");
 
 	VkMemoryRequirements memRequirements;
 	vkGetImageMemoryRequirements(deviceHandle_, handle_, &memRequirements);
@@ -61,9 +60,8 @@ void Image::genImage(VkPhysicalDevice _physicalDevice, uint32_t width, uint32_t 
 	allocInfo.allocationSize = memRequirements.size;
 	allocInfo.memoryTypeIndex = findMemoryType(_physicalDevice, memRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 
-	if (vkAllocateMemory(deviceHandle_, &allocInfo, nullptr, &memory_) != VK_SUCCESS) {
-		throw std::runtime_error("failed to allocate image memory!");
-	}
+	error_code = vkAllocateMemory(deviceHandle_, &allocInfo, nullptr, &memory_);
+	handleVkResult(error_code, "Failed to allocate image memory");
 
 	vkBindImageMemory(deviceHandle_, handle_, memory_, 0);
 }

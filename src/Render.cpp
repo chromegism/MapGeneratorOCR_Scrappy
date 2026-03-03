@@ -36,7 +36,6 @@ void Renderer::init(SDL_Window* window, TerrainGenerator& generator) {
 	createVertexBuffer(generator);
 	createIndexBuffer(generator);
 	createHeightImage(generator);
-	createHeightImageView();
 	createHeightSampler();
 	createUniformBuffers();
 	createDescriptorPool();
@@ -463,23 +462,11 @@ void Renderer::createFramebuffers() {
 	swapChainFramebuffers.resize(swapChainImages.size());
 
 	for (size_t i = 0; i < swapChainImages.size(); i++) {
-		std::array<VkImageView, 2> attachments = {
-			swapChainImages[i].view(),
-			depthImage.view()
-		};
-
-		VkFramebufferCreateInfo framebufferInfo{};
-		framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
-		framebufferInfo.renderPass = renderPass;
-		framebufferInfo.attachmentCount = static_cast<uint32_t>(attachments.size());
-		framebufferInfo.pAttachments = attachments.data();
-		framebufferInfo.width = swapChainExtent.width;
-		framebufferInfo.height = swapChainExtent.height;
-		framebufferInfo.layers = 1;
-
-		if (vkCreateFramebuffer(device.handle(), &framebufferInfo, nullptr, &swapChainFramebuffers[i]) != VK_SUCCESS) {
-			throw std::runtime_error("failed to create framebuffer!");
-		}
+		swapChainFramebuffers.at(i) = Framebuffer::create(
+			device.handle(), swapChainImages.at(i).view(), 
+			depthImage.view(), renderPass, 
+			swapChainExtent.width, swapChainExtent.height
+		);
 	}
 }
 
@@ -701,17 +688,7 @@ void Renderer::createIndexBuffer(TerrainGenerator& generator) {
 }
 
 void Renderer::createHeightImage(TerrainGenerator& generator) {
-	uint32_t bufferLength = generator.details.width * generator.details.height;
-	uint32_t bufferSize = sizeof(float) * bufferLength;
-
-	createImage(
-		generator.details.width, generator.details.height,
-		VK_FORMAT_R32_SFLOAT, VK_IMAGE_TILING_OPTIMAL,
-		VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT,
-		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-		heightImage, heightImageMemory
-	);
-
+	heightImage = Image::createStorage(device, generator.details.width, generator.details.height, VK_FORMAT_R32_SFLOAT, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT);
 	updateHeightImage(generator);
 
 	DEBUG_LOG << "Successfully created height image" << std::endl;
@@ -739,18 +716,12 @@ void Renderer::updateHeightImage(TerrainGenerator& generator) {
 	generator.genTerrainInto(static_cast<float*>(data));
 	vkUnmapMemory(device.handle(), stagingBufferMemory);
 
-	transitionImageLayout(heightImage, VK_FORMAT_R32_SFLOAT, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-	copyBufferToImage(stagingBuffer, heightImage, generator.details.width, generator.details.height);
-	transitionImageLayout(heightImage, VK_FORMAT_R32_SFLOAT, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+	transitionImageLayout(heightImage.handle(), VK_FORMAT_R32_SFLOAT, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+	copyBufferToImage(stagingBuffer, heightImage.handle(), generator.details.width, generator.details.height);
+	transitionImageLayout(heightImage.handle(), VK_FORMAT_R32_SFLOAT, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
 	vkDestroyBuffer(device.handle(), stagingBuffer, nullptr);
 	vkFreeMemory(device.handle(), stagingBufferMemory, nullptr);
-}
-
-void Renderer::createHeightImageView() {
-	heightImageView = createImageView(heightImage, VK_FORMAT_R32_SFLOAT, VK_IMAGE_ASPECT_COLOR_BIT);
-
-	DEBUG_LOG << "Successfully created height image view" << std::endl;
 }
 
 void Renderer::createHeightSampler() {
@@ -937,7 +908,7 @@ void Renderer::createDescriptorSets() {
 		// Height sampler (binding 2)
 		VkDescriptorImageInfo heightInfo{};
 		heightInfo.imageLayout = VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL;
-		heightInfo.imageView = heightImageView;
+		heightInfo.imageView = heightImage.view();
 		heightInfo.sampler = heightSampler;
 
 		VkWriteDescriptorSet heightInfoWrite{};
@@ -994,7 +965,7 @@ void Renderer::recordCommandBuffer(VkCommandBuffer _commandBuffer, uint32_t imag
 	VkRenderPassBeginInfo renderPassInfo{};
 	renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
 	renderPassInfo.renderPass = renderPass;
-	renderPassInfo.framebuffer = swapChainFramebuffers[imageIndex];
+	renderPassInfo.framebuffer = swapChainFramebuffers[imageIndex].handle();
 	renderPassInfo.renderArea.offset = { 0, 0 };
 	renderPassInfo.renderArea.extent = swapChainExtent;
 
@@ -1065,8 +1036,8 @@ void Renderer::createSyncObjects() {
 
 void Renderer::destroy() {
 	// destroySwapchain {
-	for (auto framebuffer : swapChainFramebuffers) {
-		vkDestroyFramebuffer(device.handle(), framebuffer, nullptr);
+	for (auto& framebuffer : swapChainFramebuffers) {
+		framebuffer.destroy();
 	}
 
 	for (auto& image : swapChainImages) {
@@ -1092,9 +1063,7 @@ void Renderer::destroy() {
 	depthImage.destroy();
 
 	vkDestroySampler(device.handle(), heightSampler, nullptr);
-	vkDestroyImageView(device.handle(), heightImageView, nullptr);
-	vkDestroyImage(device.handle(), heightImage, nullptr);
-	vkFreeMemory(device.handle(), heightImageMemory, nullptr);
+	heightImage.destroy();
 
 	vkDestroyBuffer(device.handle(), indexBuffer, nullptr);
 	vkFreeMemory(device.handle(), indexBufferMemory, nullptr);

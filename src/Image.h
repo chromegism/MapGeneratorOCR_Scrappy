@@ -11,42 +11,46 @@ private:
 	VkImage handle_ = VK_NULL_HANDLE;			// owning
 	VkDeviceMemory memory_ = VK_NULL_HANDLE;	// owning
 	VkImageView view_ = VK_NULL_HANDLE;			// owning
+	VkFormat format_ = VK_FORMAT_UNDEFINED;
 
-	void setHandles(VkDevice _deviceHandle, VkImage _handle, VkDeviceMemory _memory, VkImageView _view) {
+	void setHandles(VkDevice _deviceHandle, VkImage _handle, VkDeviceMemory _memory, VkImageView _view, VkFormat _format) {
 		deviceHandle_ = _deviceHandle;
 		handle_ = _handle;
 		memory_ = _memory;
 		view_ = _view;
+		format_ = _format;
 	}
 	void clearHandles() {
 		deviceHandle_ = VK_NULL_HANDLE;
 		handle_ = VK_NULL_HANDLE;
 		memory_ = VK_NULL_HANDLE;
 		view_ = VK_NULL_HANDLE;
+		format_ = VK_FORMAT_UNDEFINED;
 	}
-	void exchangeHandles(VkDevice& _deviceHandle, VkImage& _handle, VkDeviceMemory& _memory, VkImageView& _view) {
+	void exchangeHandles(VkDevice& _deviceHandle, VkImage& _handle, VkDeviceMemory& _memory, VkImageView& _view, VkFormat _format) {
 		deviceHandle_ = std::exchange(_deviceHandle, VK_NULL_HANDLE);
 		handle_ = std::exchange(_handle, VK_NULL_HANDLE);
 		memory_ = std::exchange(_memory, VK_NULL_HANDLE);
 		view_ = std::exchange(_view, VK_NULL_HANDLE);
+		format_ = _format;
 	}
 	
-	void genImage(VkPhysicalDevice _physicalDevice, uint32_t width, uint32_t height, VkFormat format, VkImageUsageFlags usage, VkSampleCountFlagBits samples);
+	void genImage(VkPhysicalDevice _physicalDevice, uint32_t width, uint32_t height, VkImageUsageFlags usage, VkSampleCountFlagBits samples);
 	void genImageView(VkFormat _format, VkImageAspectFlags _aspectFlags);
 
 	Image(VkPhysicalDevice phys, VkDevice device,
 		uint32_t width, uint32_t height,
 		VkFormat format, VkImageUsageFlags usage, VkImageAspectFlags aspect,
-		VkSampleCountFlagBits samples = VK_SAMPLE_COUNT_1_BIT) : deviceHandle_(device)
+		VkSampleCountFlagBits samples = VK_SAMPLE_COUNT_1_BIT) : deviceHandle_(device), format_(format)
 	{
-		genImage(phys, width, height, format, usage, samples);
+		genImage(phys, width, height, usage, samples);
 		genImageView(format, aspect);
 	}
 
 public:
-	static Image fromHandle(VkDevice _deviceHandle, VkImage _handle, VkDeviceMemory _memory, VkImageView _view) {
+	static Image wrapExisting(VkDevice _deviceHandle, VkImage _handle, VkDeviceMemory _memory, VkImageView _view, VkFormat _format) {
 		auto im = Image();
-		im.setHandles(_deviceHandle, _handle, _memory, _view);
+		im.setHandles(_deviceHandle, _handle, _memory, _view, _format);
 		return im;
 	}
 	static Image createColor(const LogicalDevice& dev, uint32_t width, uint32_t height, VkFormat format) {
@@ -55,11 +59,14 @@ public:
 	static Image createDepth(const LogicalDevice& dev, uint32_t width, uint32_t height, VkFormat format) {
 		return Image(dev.physicalDeviceHandle(), dev.handle(), width, height, format, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_IMAGE_ASPECT_DEPTH_BIT);
 	}
+	static Image createStorage(const LogicalDevice& dev, uint32_t width, uint32_t height, VkFormat format, VkImageUsageFlags extraUsage = 0) {
+		return Image(dev.physicalDeviceHandle(), dev.handle(), width, height, format, VK_IMAGE_USAGE_STORAGE_BIT | extraUsage, VK_IMAGE_ASPECT_COLOR_BIT);
+	}
 
 	Image() noexcept = default;
 	Image(const Image&) noexcept = delete; // move only
 	Image(Image&& other) noexcept {
-		exchangeHandles(other.deviceHandle_, other.handle_, other.memory_, other.view_);
+		exchangeHandles(other.deviceHandle_, other.handle_, other.memory_, other.view_, other.format_);
 	}
 	Image& operator=(Image&& other) noexcept {
 		if (this != &other) {
@@ -67,7 +74,7 @@ public:
 				destroy();
 
 			// Make sure other object's handles are empty to avoid premature destruction of vulkan objects
-			exchangeHandles(other.deviceHandle_, other.handle_, other.memory_, other.view_);
+			exchangeHandles(other.deviceHandle_, other.handle_, other.memory_, other.view_, other.format_);
 		}
 		return *this;
 	}
@@ -76,6 +83,7 @@ public:
 	VkImage handle() const noexcept { return handle_; }
 	VkDeviceMemory memory() const noexcept { return memory_; }
 	VkImageView view() const noexcept { return view_; }
+	VkFormat format() const noexcept { return format_; }
 	bool isValid() const noexcept { return handle_ != VK_NULL_HANDLE; }
 
 	void destroy() noexcept {

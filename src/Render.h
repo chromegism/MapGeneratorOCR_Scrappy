@@ -15,6 +15,7 @@
 #include "Surface.h"
 #include "Device.h"
 #include "Image.h"
+#include "Framebuffer.h"
 
 struct MVPBufferObject {
 	glm::mat4 model;
@@ -81,7 +82,7 @@ private:
 	VkPipelineLayout pipelineLayout;
 	VkRenderPass renderPass;
 	VkPipeline graphicsPipeline;
-	std::vector<VkFramebuffer> swapChainFramebuffers;
+	std::vector<Framebuffer> swapChainFramebuffers;
 	VkCommandPool commandPool;
 	std::vector<VkCommandBuffer> commandBuffers;
 
@@ -103,9 +104,7 @@ private:
 	std::vector<VkSemaphore> renderFinishedSemaphores;
 	std::vector<VkFence> inFlightFences;
 
-	VkImage heightImage;
-	VkDeviceMemory heightImageMemory;
-	VkImageView heightImageView;
+	Image heightImage;
 	VkSampler heightSampler;
 
 	uint32_t maxFramesInFlight = 0;
@@ -146,7 +145,6 @@ private:
 	void createVertexBuffer(TerrainGenerator& generator);
 	void createIndexBuffer(TerrainGenerator& generator);
 	void createHeightImage(TerrainGenerator& generator);
-	void createHeightImageView();
 	void updateHeightImage(TerrainGenerator& generator);
 	void createHeightSampler();
 	void createUniformBuffers();
