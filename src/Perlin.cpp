@@ -343,7 +343,7 @@ void PerlinMap::genInto(float* buffer, uint32_t width, uint32_t height) const {
 
 	uint32_t rowsPerThread = height / threadCount;
 
-	if (check_avx_support()) {
+	/*if (check_avx_support()) {
 		std::vector<float> xs = make_xs(width, rowsPerThread);
 		std::vector<float> ys = make_ys(width, rowsPerThread, height);
 
@@ -364,7 +364,7 @@ void PerlinMap::genInto(float* buffer, uint32_t width, uint32_t height) const {
 		for (auto& th : threads)
 			th.join();
 	}
-	else {
+	else {*/
 		for (uint32_t t = 0; t < threadCount; t++) {
 			uint32_t startRow = t * rowsPerThread;
 			uint32_t endRow = (t == threadCount - 1)
@@ -385,5 +385,5 @@ void PerlinMap::genInto(float* buffer, uint32_t width, uint32_t height) const {
 
 		for (auto& th : threads)
 			th.join();
-	}
+	//}
 }
