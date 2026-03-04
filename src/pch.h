@@ -10,6 +10,7 @@
 #include <array>
 #include <chrono>
 #include <random>
+#include <thread>
 
 // Algorithms/ranges (widely used)
 #include <algorithm>
@@ -43,3 +44,9 @@
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
+
+#if defined(_MSC_VER)
+	#include <intrin.h>
+#elif defined(__GNUC__) || defined(__clang__)
+	#include <cpuid.h>
+#endif

@@ -4,7 +4,53 @@
 
 constexpr float PI = 3.14159265358f;
 
+#if defined(_MSC_VER)
+	#include <intrin.h>
+#elif defined(__GNUC__) || defined(__clang__)
+	#include <cpuid.h>
+#endif
+
+bool check_avx_support() {
+	int cpuInfo[4];
+
+	// 1. Check for CPUID support and get max supported leaf
+#if defined(_MSC_VER)
+	__cpuid(cpuInfo, 0);
+#else
+	if (__get_cpuid_max(0, nullptr) < 1) return false;
+	__cpuid(0, cpuInfo[0], cpuInfo[1], cpuInfo[2], cpuInfo[3]);
+#endif
+
+	// 2. Check for AVX feature bit (Leaf 1, ECX bit 28)
+	// and OSXSAVE bit (Leaf 1, ECX bit 27)
+#if defined(_MSC_VER)
+	__cpuid(cpuInfo, 1);
+#else
+	__cpuid(1, cpuInfo[0], cpuInfo[1], cpuInfo[2], cpuInfo[3]);
+#endif
+
+	bool cpu_has_avx = (cpuInfo[2] & (1 << 28)) != 0;
+	bool os_has_xsave = (cpuInfo[2] & (1 << 27)) != 0;
+
+	if (cpu_has_avx && os_has_xsave) {
+		// 3. Check if OS actually enabled AVX via XGETBV
+		// We check XCR0 (Extended Control Register 0)
+		// Bit 1 = SSE state, Bit 2 = AVX state. Both must be 1 (0x6).
+#if defined(_MSC_VER)
+		unsigned __int64 xcr0 = _xgetbv(0);
+#else
+		unsigned int eax, edx;
+		__asm__ volatile("xgetbv" : "=a" (eax), "=d" (edx) : "c" (0));
+		unsigned long long xcr0 = ((unsigned long long)edx << 32) | eax;
+#endif
+		return (xcr0 & 0x6) == 0x6;
+	}
+
+	return false;
+}
+
 constexpr size_t SIMD_WIDTH = 8; // AVX2 256-bit floats -> 8 floats
+
 const __m256i unit_epi32 = _mm256_set1_epi32(1);
 const __m256 unit_ps = _mm256_set1_ps(1.f);
 const __m256 unitn_ps = _mm256_set1_ps(-1.f);
@@ -12,6 +58,31 @@ const __m256 unitn_ps = _mm256_set1_ps(-1.f);
 std::random_device rd;
 std::mt19937 gen{ rd() };
 std::uniform_real_distribution<float> dist{ -PI, PI };
+
+inline std::vector<float> make_xs(uint32_t width, uint32_t height) {
+	std::vector<float> arr(width * height);
+	float inv_width = 1.f / width;
+
+	// fill first block
+	for (size_t i = 0; i < width; ++i)
+		arr[i] = i * inv_width;
+
+	// repeat m times
+	for (size_t j = 1; j < height; ++j)
+		std::memcpy(&arr[j * width], &arr[0], width * sizeof(float));
+
+	return arr;
+}
+
+inline std::vector<float> make_ys(uint32_t width, uint32_t height, uint32_t max_height) {
+	std::vector<float> arr(width * height);
+	float inv_width = 1.f / max_height;
+
+	for (size_t j = 0; j < height; ++j)
+		std::fill(arr.begin() + j * width, arr.begin() + (j + 1) * width, j * inv_width);
+
+	return arr;
+}
 
 PerlinMap::PerlinLayer::PerlinLayer(float x_multiplier, float y_multiplier, float octave) {
 	size_x = octave * x_multiplier;
@@ -253,4 +324,44 @@ void PerlinMap::clear() {
 	for (auto& layer : layers) {
 		layer.clear();
 	}
+}
+
+void PerlinMap::genInto(float* buffer, uint32_t width, uint32_t height) const {
+	const float invW = 1.0f / width;
+	const float invH = 1.0f / height;
+
+	uint32_t threadCount = std::thread::hardware_concurrency();
+	if (threadCount == 0) threadCount = 4;
+
+	std::vector<std::thread> threads;
+	threads.reserve(threadCount);
+
+	uint32_t rowsPerThread = height / threadCount;
+
+	std::vector<float> xs = make_xs(width, rowsPerThread);
+	std::vector<float> ys = make_ys(width, rowsPerThread, height);
+
+	for (uint32_t t = 0; t < threadCount; t++) {
+		uint32_t startRow = t * rowsPerThread;
+		uint32_t endRow = (t == threadCount - 1)
+			? height
+			: startRow + rowsPerThread;
+
+		threads.emplace_back([&, startRow, endRow]() {
+
+			/*for (uint32_t y = startRow; y < endRow; y++) {
+				const float fy = y * invH;
+
+				for (uint32_t x = 0; x < width; x++) {
+					buffer[x + y * width] =
+						index(x * invW, fy);
+				}
+			}*/
+			batch_index_simd(xs.data(), ys.data(), startRow * invH, buffer + startRow * width, rowsPerThread * width);
+
+			});
+	}
+
+	for (auto& th : threads)
+		th.join();
 }
