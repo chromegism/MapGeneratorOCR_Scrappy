@@ -2,7 +2,7 @@
 
 #include <vector>
 
-#include "immintrin.h"
+//#include "immintrin.h"
 
 struct Arrow2D {
 	float x = 0.f;
