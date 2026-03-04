@@ -104,7 +104,7 @@ include(CheckCXXCompilerFlag)
 if(MSVC)
     set(AVX2_FLAG "/arch:AVX2 /arch:FMA")
 else()
-    target_compile_options(main PRIVATE -mavx2 -mfma -march=native)
+    target_compile_options(main PRIVATE -march=native)
 endif()
 
 # Check if the compiler actually supports this flag
