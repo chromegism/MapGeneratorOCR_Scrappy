@@ -51,10 +51,6 @@ bool check_avx_support() {
 
 constexpr size_t SIMD_WIDTH = 8; // AVX2 256-bit floats -> 8 floats
 
-const __m256i unit_epi32 = _mm256_set1_epi32(1);
-const __m256 unit_ps = _mm256_set1_ps(1.f);
-const __m256 unitn_ps = _mm256_set1_ps(-1.f);
-
 std::random_device rd;
 std::mt19937 gen{ rd() };
 std::uniform_real_distribution<float> dist{ -PI, PI };
@@ -220,7 +216,11 @@ float PerlinMap::PerlinLayer::index(float x, float y) const {
 	return smoothstep(s1, s2, local_y);
 }
 
-void PerlinMap::PerlinLayer::batch_index_simd(const float* xs, const float* ys, const float y_offset, float* out, __m256 multiplier) const {
+inline void PerlinMap::PerlinLayer::batch_index_simd(const float* xs, const float* ys, const float y_offset, float* out, __m256 multiplier) const {
+	const __m256i unit_epi32 = _mm256_set1_epi32(1);
+	const __m256 unit_ps = _mm256_set1_ps(1.f);
+	const __m256 unitn_ps = _mm256_set1_ps(-1.f);
+
 	const __m256 grid_xs = _mm256_mul_ps( _mm256_loadu_ps(xs), _mm256_set1_ps(size_x - 1) );
 	const __m256 acc_ys = _mm256_add_ps(_mm256_loadu_ps(ys), _mm256_set1_ps(y_offset));
 	const __m256 grid_ys = _mm256_mul_ps( acc_ys, _mm256_set1_ps(size_y - 1) );
@@ -287,7 +287,12 @@ float PerlinMap::index(float x, float y) const {
 	return std::min(std::max(value, -1.f), 1.f);
 }
 
-void PerlinMap::batch_index_simd(const float* xs, const float* ys, const float y_offset, float* out, size_t count) const {
+inline void PerlinMap::batch_index_simd(const float* xs, const float* ys, const float y_offset, float* out, size_t count) const {
+	// redeclaration due to architecture support
+	const __m256i unit_epi32 = _mm256_set1_epi32(1);
+	const __m256 unit_ps = _mm256_set1_ps(1.f);
+	const __m256 unitn_ps = _mm256_set1_ps(-1.f);
+
 	std::fill(out, out + count, 0.0f);
 
 	float invAmplitude = 1;
@@ -338,30 +343,47 @@ void PerlinMap::genInto(float* buffer, uint32_t width, uint32_t height) const {
 
 	uint32_t rowsPerThread = height / threadCount;
 
-	std::vector<float> xs = make_xs(width, rowsPerThread);
-	std::vector<float> ys = make_ys(width, rowsPerThread, height);
+	if (check_avx_support()) {
+		std::vector<float> xs = make_xs(width, rowsPerThread);
+		std::vector<float> ys = make_ys(width, rowsPerThread, height);
 
-	for (uint32_t t = 0; t < threadCount; t++) {
-		uint32_t startRow = t * rowsPerThread;
-		uint32_t endRow = (t == threadCount - 1)
-			? height
-			: startRow + rowsPerThread;
+		for (uint32_t t = 0; t < threadCount; t++) {
+			uint32_t startRow = t * rowsPerThread;
+			uint32_t endRow = (t == threadCount - 1)
+				? height
+				: startRow + rowsPerThread;
 
-		threads.emplace_back([&, startRow, endRow]() {
+			threads.emplace_back([&, startRow, endRow]() {
 
-			/*for (uint32_t y = startRow; y < endRow; y++) {
-				const float fy = y * invH;
+				batch_index_simd(xs.data(), ys.data(), startRow * invH, buffer + startRow * width, rowsPerThread * width);
 
-				for (uint32_t x = 0; x < width; x++) {
-					buffer[x + y * width] =
-						index(x * invW, fy);
-				}
-			}*/
-			batch_index_simd(xs.data(), ys.data(), startRow * invH, buffer + startRow * width, rowsPerThread * width);
+				});
+		}
 
-			});
+		// Required to be in here due to lifetimes
+		for (auto& th : threads)
+			th.join();
 	}
+	else {
+		for (uint32_t t = 0; t < threadCount; t++) {
+			uint32_t startRow = t * rowsPerThread;
+			uint32_t endRow = (t == threadCount - 1)
+				? height
+				: startRow + rowsPerThread;
 
-	for (auto& th : threads)
-		th.join();
+			threads.emplace_back([&, startRow, endRow]() {
+				for (uint32_t y = startRow; y < endRow; y++) {
+					const float fy = y * invH;
+
+					for (uint32_t x = 0; x < width; x++) {
+						buffer[x + y * width] =
+							index(x * invW, fy);
+					}
+				}
+			});
+		}
+
+		for (auto& th : threads)
+			th.join();
+	}
 }
