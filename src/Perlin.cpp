@@ -149,9 +149,9 @@ inline float raw_dot(const float Ax, const float Ay, const float Bx, const float
 	return Ax * Bx + Ay * By;
 }
 
-inline __m256 raw_dot_m256(const __m256 Ax, const __m256 Ay, const __m256 Bx, const __m256 By) noexcept {
+/*inline __m256 raw_dot_m256(const __m256 Ax, const __m256 Ay, const __m256 Bx, const __m256 By) noexcept {
 	return _mm256_add_ps(_mm256_mul_ps(Ax, Bx), _mm256_mul_ps(Ay, By));
-}
+}*/
 
 inline float half_raw_dot(const float Ax, const float Ay, const Arrow2D& B) noexcept {
 	return Ax * B.x + Ay * B.y;
@@ -161,29 +161,29 @@ inline float lerp(float v1, float v2, float x) noexcept  {
 	return v1 + x * (v2 - v1);
 }
 
-inline __m256 lerp_m256(const __m256 v1, const __m256 v2, const __m256 x) noexcept {
+/*inline __m256 lerp_m256(const __m256 v1, const __m256 v2, const __m256 x) noexcept {
 	return _mm256_add_ps(v1, _mm256_mul_ps(x, _mm256_sub_ps(v2, v1)));
-}
+}*/
 
 inline float fade(float t) noexcept {
 	return t * t * t * (t * (t * 6 - 15) + 10);
 }
 
-inline __m256 fade_m256(const __m256 t) noexcept {
+/*inline __m256 fade_m256(const __m256 t) noexcept {
 	const __m256 t2 = _mm256_mul_ps(t, t);
 	const __m256 t3 = _mm256_mul_ps(t2, t);
 	__m256 tmp = _mm256_fmsub_ps(t, _mm256_set1_ps(6.f), _mm256_set1_ps(15.f));
 	tmp = _mm256_fmadd_ps(t, tmp, _mm256_set1_ps(10.f));
 	return _mm256_mul_ps(t3, tmp);
-}
+}*/
 
 inline float smoothstep(float v1, float v2, float x) noexcept {
 	return lerp(v1, v2, fade(x));
 }
 
-inline __m256 smoothstep_m256(const __m256 v1, const __m256 v2, const __m256 x) noexcept {
+/*inline __m256 smoothstep_m256(const __m256 v1, const __m256 v2, const __m256 x) noexcept {
 	return lerp_m256(v1, v2, fade_m256(x));
-}
+}*/
 
 float PerlinMap::PerlinLayer::index(float x, float y) const {
 	const float grid_x = x * (size_x - 1);
