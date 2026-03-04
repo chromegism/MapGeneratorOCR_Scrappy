@@ -1,10 +1,13 @@
 #include "pch.h"
 
+// AVX headers
+//#include <immintrin.h>
+
 #include "Perlin.h"
 
 constexpr float PI = 3.14159265358f;
 
-#if defined(_MSC_VER)
+/*#if defined(_MSC_VER)
 	#include <intrin.h>
 #elif defined(__GNUC__) || defined(__clang__)
 	#include <cpuid.h>
@@ -49,7 +52,7 @@ bool check_avx_support() {
 	return false;
 }
 
-constexpr size_t SIMD_WIDTH = 8; // AVX2 256-bit floats -> 8 floats
+constexpr size_t SIMD_WIDTH = 8; // AVX2 256-bit floats -> 8 floats*/
 
 std::random_device rd;
 std::mt19937 gen{ rd() };
@@ -216,7 +219,7 @@ float PerlinMap::PerlinLayer::index(float x, float y) const {
 	return smoothstep(s1, s2, local_y);
 }
 
-inline void PerlinMap::PerlinLayer::batch_index_simd(const float* xs, const float* ys, const float y_offset, float* out, __m256 multiplier) const {
+/*inline void PerlinMap::PerlinLayer::batch_index_simd(const float* xs, const float* ys, const float y_offset, float* out, __m256 multiplier) const {
 	const __m256i unit_epi32 = _mm256_set1_epi32(1);
 	const __m256 unit_ps = _mm256_set1_ps(1.f);
 	const __m256 unitn_ps = _mm256_set1_ps(-1.f);
@@ -272,7 +275,7 @@ inline void PerlinMap::PerlinLayer::batch_index_simd(const float* xs, const floa
 	vs = _mm256_mul_ps(vs, multiplier);
 	vs = _mm256_add_ps(vs, prev);
 	_mm256_storeu_ps(out, vs);
-}
+}*/
 
 float PerlinMap::index(float x, float y) const {
 	float value = 0;
@@ -287,7 +290,7 @@ float PerlinMap::index(float x, float y) const {
 	return std::min(std::max(value, -1.f), 1.f);
 }
 
-inline void PerlinMap::batch_index_simd(const float* xs, const float* ys, const float y_offset, float* out, size_t count) const {
+/*inline void PerlinMap::batch_index_simd(const float* xs, const float* ys, const float y_offset, float* out, size_t count) const {
 	// redeclaration due to architecture support
 	const __m256i unit_epi32 = _mm256_set1_epi32(1);
 	const __m256 unit_ps = _mm256_set1_ps(1.f);
@@ -319,7 +322,7 @@ inline void PerlinMap::batch_index_simd(const float* xs, const float* ys, const 
 
 		invAmplitude /= details.base;
 	}
-}
+}*/
 
 void PerlinMap::PerlinLayer::clear() {
 	arrows.clear();

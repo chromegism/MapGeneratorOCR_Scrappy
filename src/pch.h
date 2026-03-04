@@ -33,9 +33,6 @@
 #include <cstring>
 #include <cassert>
 
-// AVX headers
-#include <immintrin.h>
-
 // 3rd party tools
 #include <vulkan/vulkan.h>
 #include <SDL3/SDL.h>
@@ -44,9 +41,3 @@
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
-
-#if defined(_MSC_VER)
-	#include <intrin.h>
-#elif defined(__GNUC__) || defined(__clang__)
-	#include <cpuid.h>
-#endif

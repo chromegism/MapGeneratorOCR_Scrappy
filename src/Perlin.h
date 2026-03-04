@@ -31,7 +31,7 @@ private:
 		float octaves = 0.f;
 
 		float index(float x, float y) const;
-		void batch_index_simd(const float* xs, const float* ys, const float y_offset, float* out, __m256 multiplier) const;
+		//void batch_index_simd(const float* xs, const float* ys, const float y_offset, float* out, __m256 multiplier) const;
 		void clear();
 
 		PerlinLayer(float x_multiplier, float y_multiplier, float octave);
@@ -55,6 +55,6 @@ public:
 	void clear();
 
 	float index(float x, float y) const;
-	void batch_index_simd(const float* xs, const float* ys, const float y_offset, float* out, size_t count) const;
+	//void batch_index_simd(const float* xs, const float* ys, const float y_offset, float* out, size_t count) const;
 	void genInto(float* buffer, uint32_t width, uint32_t height) const;
 };
