@@ -150,23 +150,23 @@ public:
 };
 
 class LogicalDevice {
-	VkPhysicalDevice physicalDeviceHandle_ = VK_NULL_HANDLE;
+	const PhysicalDevice* physicalDevice_ = nullptr;
 	VkDevice handle_ = VK_NULL_HANDLE;
 
 	Queue graphicsQueue_;
 	Queue presentQueue_;
 
-	void setHandles(VkPhysicalDevice _physicalDeviceHandle, VkDevice _handle, const Queue& _graphicsQueue, const Queue& _presentQueue) noexcept {
-		physicalDeviceHandle_ = _physicalDeviceHandle;
-		handle_ = _handle;
-		graphicsQueue_ = _graphicsQueue;
-		presentQueue_ = _presentQueue;
-	}
 	void clearHandles() noexcept {
-		physicalDeviceHandle_ = VK_NULL_HANDLE;
+		physicalDevice_ = nullptr;
 		handle_ = VK_NULL_HANDLE;
 		graphicsQueue_.clearHandles();
 		presentQueue_.clearHandles();
+	}
+	void exchangeHandles(LogicalDevice& other) noexcept {
+		physicalDevice_ = std::exchange(other.physicalDevice_, nullptr);
+		handle_ = std::exchange(other.handle_, VK_NULL_HANDLE);
+		graphicsQueue_ = std::move(other.graphicsQueue_);
+		presentQueue_ = std::move(other.presentQueue_);
 	}
 
 public:
@@ -175,21 +175,23 @@ public:
 	LogicalDevice(const LogicalDevice&) noexcept = delete;
 
 	LogicalDevice(LogicalDevice&& other) noexcept {
-		setHandles(other.physicalDeviceHandle(), other.handle(), other.graphicsQueue(), other.presentQueue());
-		other.clearHandles();
+		exchangeHandles(other);
 	}
 	LogicalDevice& operator=(LogicalDevice&& other) noexcept {
 		if (this != &other) {
 			destroy();
 
-			setHandles(other.physicalDeviceHandle(), other.handle(), other.graphicsQueue(), other.presentQueue());
-			other.clearHandles();
+			exchangeHandles(other);
 		}
 		return *this;
 	}
 	~LogicalDevice() { destroy(); }
 
-	VkPhysicalDevice physicalDeviceHandle() const noexcept { return physicalDeviceHandle_; }
+	const PhysicalDevice& physicalDevice() const noexcept { 
+		assert(physicalDevice_ != nullptr);
+		return *physicalDevice_;
+	}
+	VkPhysicalDevice physicalDeviceHandle() const noexcept { return physicalDevice_->handle(); }
 	VkDevice handle() const noexcept { return handle_; }
 	const Queue& graphicsQueue() const noexcept { return graphicsQueue_; }
 	const Queue& presentQueue() const noexcept { return presentQueue_; }

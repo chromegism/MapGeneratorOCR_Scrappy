@@ -16,6 +16,7 @@
 #include "Device.h"
 #include "Image.h"
 #include "Framebuffer.h"
+#include "Swapchain.h"
 
 struct MVPBufferObject {
 	glm::mat4 model;
@@ -74,15 +75,10 @@ private:
 	Surface surface;
 	PhysicalDevice physicalDevice;
 	LogicalDevice device;
-	VkSwapchainKHR swapChain;
-	VkFormat swapChainImageFormat;
-	VkExtent2D swapChainExtent;
-	std::vector<SwapchainImage> swapChainImages;
+	Swapchain swapchain;
 	VkDescriptorSetLayout descriptorSetLayout;
 	VkPipelineLayout pipelineLayout;
-	VkRenderPass renderPass;
 	VkPipeline graphicsPipeline;
-	std::vector<Framebuffer> swapChainFramebuffers;
 	VkCommandPool commandPool;
 	std::vector<VkCommandBuffer> commandBuffers;
 
@@ -97,8 +93,6 @@ private:
 	VkDeviceMemory vertexBufferMemory;
 	VkBuffer indexBuffer;
 	VkDeviceMemory indexBufferMemory;
-
-	Image depthImage;
 
 	std::vector<VkSemaphore> imageAvailableSemaphores;
 	std::vector<VkSemaphore> renderFinishedSemaphores;
@@ -130,17 +124,9 @@ private:
 
 	void createInstance();
 
-	VkSurfaceFormatKHR chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& availableFormats);
-	VkPresentModeKHR chooseSwapPresentMode(const std::vector<VkPresentModeKHR>& availablePresentModes);
-	VkExtent2D chooseSwapExtent(SDL_Window* window, const VkSurfaceCapabilitiesKHR& capabilities);
-	void createSwapChain(SDL_Window* window);
-
 	VkShaderModule createShaderModule(const std::vector<char>& code);
 	void createDescriptorSetLayout();
 	void createGraphicsPipeline();
-	void createRenderPass();
-
-	void createFramebuffers();
 	void createCommandPool();
 	void createVertexBuffer(TerrainGenerator& generator);
 	void createIndexBuffer(TerrainGenerator& generator);

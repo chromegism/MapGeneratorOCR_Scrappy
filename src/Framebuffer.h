@@ -79,4 +79,6 @@ public:
 		}
 		clearHandles();
 	}
+
+	~Framebuffer() { destroy(); }
 };

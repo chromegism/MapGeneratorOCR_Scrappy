@@ -1,6 +1,5 @@
 #include "pch.h"
 
-#include "MapSettings.h"
 #include "Perlin.h"
 #include "Terrain.h"
 
