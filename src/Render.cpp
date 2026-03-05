@@ -435,8 +435,8 @@ void Renderer::createVertexBuffer(TerrainGenerator& generator) {
 
 	Buffer stagingBuffer = Buffer::createStaging(device, bufferSize);
 
-	void* data = stagingBuffer.mapMemory();
-	generator.genVertexChunksInto(static_cast<glm::vec2*>(data));
+	glm::vec2* data = stagingBuffer.mapMemory<glm::vec2>();
+	generator.genVertexChunksInto(data);
 	stagingBuffer.unmapMemory();
 
 	vertexBuffer = Buffer::createVertex(device, bufferSize);
@@ -449,13 +449,13 @@ void Renderer::createVertexBuffer(TerrainGenerator& generator) {
 
 
 void Renderer::createIndexBuffer(TerrainGenerator& generator) {
-	terrainIndicesLength = generator.calcIndicesLength();
+	VkDeviceSize terrainIndicesLength = generator.calcIndicesLength();
 	VkDeviceSize bufferSize = sizeof(uint32_t) * terrainIndicesLength;
 
 	Buffer stagingBuffer = Buffer::createStaging(device, bufferSize);
 
-	void* data = stagingBuffer.mapMemory();
-	generator.genTriangleIndicesInto(static_cast<uint32_t*>(data));
+	uint32_t* data = stagingBuffer.mapMemory<uint32_t>();
+	generator.genTriangleIndicesInto(data);
 	stagingBuffer.unmapMemory();
 
 	indexBuffer = Buffer::createIndex(device, bufferSize);
@@ -478,9 +478,8 @@ void Renderer::updateHeightImage(TerrainGenerator& generator) {
 
 	Buffer stagingBuffer = Buffer::createStaging(device, bufferSize);
 
-	void* data = stagingBuffer.mapMemory();
-	float* data_as_float = static_cast<float*>(data);
-	generator.genTerrainInto(static_cast<float*>(data));
+	float* data = stagingBuffer.mapMemory<float>();
+	generator.genTerrainInto(data);
 	stagingBuffer.unmapMemory();
 
 	transitionImageLayout(heightImage.handle(), VK_FORMAT_R32_SFLOAT, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
@@ -765,7 +764,7 @@ void Renderer::recordCommandBuffer(VkCommandBuffer _commandBuffer, uint32_t imag
 
 		vkCmdBindDescriptorSets(_commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSets[swapchain.currentFrameIndex()], 0, nullptr);
 
-		vkCmdDrawIndexed(_commandBuffer, static_cast<uint32_t>(terrainIndicesLength), 1, 0, 0, 0);
+		vkCmdDrawIndexed(_commandBuffer, static_cast<uint32_t>(indexBuffer.size() / sizeof(float)), 1, 0, 0, 0);
 	}
 	vkCmdEndRenderPass(_commandBuffer);
 

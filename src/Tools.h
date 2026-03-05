@@ -6,6 +6,9 @@
 
 #include <vulkan/vulkan.h>
 
+template <typename T>
+concept NonPointer = !std::is_pointer_v<T>;
+
 std::vector<const char*> stringVectorToCStrVector(const std::vector<std::string>& strings);
 std::string vkResultToString(VkResult);
 void handleVkResult(VkResult error_code, std::string error_msg);

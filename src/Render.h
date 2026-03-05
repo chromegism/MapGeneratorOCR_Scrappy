@@ -95,8 +95,6 @@ private:
 	Image heightImage;
 	VkSampler heightSampler;
 
-	uint32_t terrainIndicesLength = 0;
-
 	MapDetailsObject mapDetailsData;
 
 	struct QueueFamilyIndices {

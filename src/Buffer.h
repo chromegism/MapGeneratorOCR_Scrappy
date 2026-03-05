@@ -57,6 +57,7 @@ public:
 	VkDevice deviceHandle() const noexcept { return device_->handle(); }
 	VkBuffer handle() const noexcept { return handle_; }
 	VkDeviceMemory memory() const noexcept { return memory_; }
+	VkDeviceSize size() const noexcept { return size_; }
 	VkBufferUsageFlags usageFlags() const noexcept { return usageFlags_; }
 	VkMemoryPropertyFlags memoryPropertyFlags() const noexcept { return memoryPropertyFlags_; }
 	bool isValid() const noexcept { return handle_ != VK_NULL_HANDLE; }
@@ -70,10 +71,27 @@ public:
 	}
 
 	void copyBuffer(const Buffer& other, VkCommandPool commandPool);
-	void* mapMemory();
-	void* mapMemory(VkDeviceSize offset);
-	void* mapMemory(VkDeviceSize offset, VkDeviceSize size);
-	void unmapMemory();
+
+	template<NonPointer T>
+	T* mapMemory(VkDeviceSize offset, VkDeviceSize size) {
+		void* data;
+		vkMapMemory(device_->handle(), memory_, 0, size, 0, &data);
+		return static_cast<T*>(data);
+	}
+
+	template<NonPointer T>
+	T* mapMemory(VkDeviceSize offset) {
+		return mapMemory<T>(offset, size_);
+	}
+
+	template<NonPointer T>
+	T* mapMemory() {
+		return mapMemory<T>(0, size_);
+	}
+
+	void unmapMemory() {
+		vkUnmapMemory(device_->handle(), memory_);
+	}
 
 	~Buffer() { destroy(); }
 

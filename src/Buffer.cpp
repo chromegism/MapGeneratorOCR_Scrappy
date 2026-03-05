@@ -40,18 +40,3 @@ void Buffer::copyBuffer(const Buffer& other, VkCommandPool commandPool) {
 
 	endSingleTimeCommands(device_->handle(), commandPool, device_->graphicsQueue().handle(), commandBuffer);
 }
-
-void* Buffer::mapMemory(VkDeviceSize offset, VkDeviceSize size) {
-	void* data;
-	vkMapMemory(device_->handle(), memory_, 0, size, 0, &data);
-	return data;
-}
-void* Buffer::mapMemory(VkDeviceSize offset) {
-	return mapMemory(offset, size_);
-}
-void* Buffer::mapMemory() {
-	return mapMemory(0, size_);
-}
-void Buffer::unmapMemory() {
-	vkUnmapMemory(device_->handle(), memory_);
-}
