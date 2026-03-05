@@ -50,6 +50,7 @@ set(SOURCES
     src/Tools.cpp
     src/Image.cpp
     src/Framebuffer.cpp
+    src/Swapchain.cpp
 )
 
 message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
