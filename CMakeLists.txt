@@ -51,6 +51,7 @@ set(SOURCES
     src/Image.cpp
     src/Framebuffer.cpp
     src/Swapchain.cpp
+    src/Buffer.cpp
 )
 
 message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
@@ -101,19 +102,4 @@ add_dependencies(main copy_shaders)
 
 include(CheckCXXCompilerFlag)
 
-# Define flags based on compiler
-if(MSVC)
-    set(AVX2_FLAG "/arch:AVX2 /arch:FMA")
-else()
-    target_compile_options(main PRIVATE -march=native)
-endif()
-
-# Check if the compiler actually supports this flag
-check_cxx_compiler_flag("${AVX2_FLAG}" COMPILER_SUPPORTS_AVX2)
-
-if(COMPILER_SUPPORTS_AVX2)
-    target_compile_options(main PRIVATE ${AVX2_FLAG})
-    target_compile_definitions(main PRIVATE USE_AVX2)
-else()
-    message(WARNING "AVX2 is not supported by this compiler/hardware combination.")
-endif()
+target_compile_options(main PRIVATE -march=native)
