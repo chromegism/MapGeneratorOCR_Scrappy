@@ -33,12 +33,12 @@ void SwapchainImage::genImageView(VkFormat _format) {
 	view_ = generateImageView(deviceHandle_, handle_, _format, VK_IMAGE_ASPECT_COLOR_BIT);
 }
 
-void Image::genImage(VkPhysicalDevice _physicalDevice, uint32_t width, uint32_t height, VkImageUsageFlags usage, VkSampleCountFlagBits samples) {
+void Image::genImage(VkPhysicalDevice _physicalDevice, VkImageUsageFlags usage, VkSampleCountFlagBits samples) {
 	VkImageCreateInfo imageInfo{};
 	imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
 	imageInfo.imageType = VK_IMAGE_TYPE_2D;
-	imageInfo.extent.width = width;
-	imageInfo.extent.height = height;
+	imageInfo.extent.width = extent_.width;
+	imageInfo.extent.height = extent_.height;
 	imageInfo.extent.depth = 1;
 	imageInfo.mipLevels = 1;
 	imageInfo.arrayLayers = 1;
@@ -49,23 +49,44 @@ void Image::genImage(VkPhysicalDevice _physicalDevice, uint32_t width, uint32_t 
 	imageInfo.samples = samples;
 	imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
-	VkResult error_code = vkCreateImage(deviceHandle_, &imageInfo, nullptr, &handle_);
+	VkResult error_code = vkCreateImage(device_->handle(), &imageInfo, nullptr, &handle_);
 	handleVkResult(error_code, "Failed to create image");
 
 	VkMemoryRequirements memRequirements;
-	vkGetImageMemoryRequirements(deviceHandle_, handle_, &memRequirements);
+	vkGetImageMemoryRequirements(device_->handle(), handle_, &memRequirements);
 
 	VkMemoryAllocateInfo allocInfo{};
 	allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
 	allocInfo.allocationSize = memRequirements.size;
 	allocInfo.memoryTypeIndex = findMemoryType(_physicalDevice, memRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 
-	error_code = vkAllocateMemory(deviceHandle_, &allocInfo, nullptr, &memory_);
+	error_code = vkAllocateMemory(device_->handle(), &allocInfo, nullptr, &memory_);
 	handleVkResult(error_code, "Failed to allocate image memory");
 
-	vkBindImageMemory(deviceHandle_, handle_, memory_, 0);
+	vkBindImageMemory(device_->handle(), handle_, memory_, 0);
 }
 
 void Image::genImageView(VkFormat _format, VkImageAspectFlags _aspectFlags) {
-	view_ = generateImageView(deviceHandle_, handle_, _format, _aspectFlags);
+	view_ = generateImageView(device_->handle(), handle_, _format, _aspectFlags);
+}
+
+void Image::copyBuffer(const Buffer& other, VkCommandPool commandPool) {
+	VkCommandBuffer commandBuffer = beginSingleTimeCommands(device_->handle(), commandPool);
+
+	VkBufferImageCopy copyRegion{};
+	copyRegion.bufferOffset = 0;
+	copyRegion.bufferRowLength = 0;
+	copyRegion.bufferImageHeight = 0;
+
+	copyRegion.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	copyRegion.imageSubresource.layerCount = 1;
+	copyRegion.imageSubresource.mipLevel = 0;
+	copyRegion.imageSubresource.baseArrayLayer = 0;
+
+	copyRegion.imageOffset = { 0, 0, 0 };
+	copyRegion.imageExtent = { extent_.width, extent_.height, 1 };
+
+	vkCmdCopyBufferToImage(commandBuffer, other.handle(), handle_, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copyRegion);
+
+	endSingleTimeCommands(device_->handle(), commandPool, device_->graphicsQueue().handle(), commandBuffer);
 }

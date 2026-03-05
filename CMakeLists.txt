@@ -32,6 +32,7 @@ FetchContent_Declare(
     GIT_REPOSITORY https://github.com/g-truc/glm.git
     GIT_TAG 0.9.9.8
 )
+message(STATUS "Compiling libraries")
 FetchContent_MakeAvailable(SDL3 tinygltf glm)
 target_compile_definitions(tinygltf INTERFACE
     JSON_USE_IMPLICIT_CONVERSIONS=0
@@ -99,7 +100,5 @@ add_custom_target(copy_shaders ALL
 )
 
 add_dependencies(main copy_shaders)
-
-include(CheckCXXCompilerFlag)
 
 target_compile_options(main PRIVATE -march=native)
