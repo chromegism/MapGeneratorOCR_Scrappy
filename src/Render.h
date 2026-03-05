@@ -15,8 +15,8 @@
 #include "Surface.h"
 #include "Device.h"
 #include "Image.h"
-#include "Framebuffer.h"
 #include "Swapchain.h"
+#include "Buffer.h"
 
 struct MVPBufferObject {
 	glm::mat4 model;
@@ -89,21 +89,11 @@ private:
 	VkDescriptorPool descriptorPool;
 	std::vector<VkDescriptorSet> descriptorSets;
 
-	VkBuffer vertexBuffer;
-	VkDeviceMemory vertexBufferMemory;
-	VkBuffer indexBuffer;
-	VkDeviceMemory indexBufferMemory;
-
-	std::vector<VkSemaphore> imageAvailableSemaphores;
-	std::vector<VkSemaphore> renderFinishedSemaphores;
-	std::vector<VkFence> inFlightFences;
+	Buffer vertexBuffer;
+	Buffer indexBuffer;
 
 	Image heightImage;
 	VkSampler heightSampler;
-
-	uint32_t maxFramesInFlight = 0;
-
-	uint32_t currentFrame = 0;
 
 	uint32_t terrainIndicesLength = 0;
 
@@ -142,15 +132,11 @@ private:
 	void copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
 	void copyBufferToImage(VkBuffer srcBuffer, VkImage dstImage, uint32_t width, uint32_t height);
 
-	void createSyncObjects();
-
 	void recordCommandBuffer(VkCommandBuffer _commandBuffer, uint32_t imageIndex);
 
 	void updateUniformBuffers(uint32_t currentImage);
 
 	void transitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout);
-	VkCommandBuffer beginSingleTimeCommands();
-	void endSingleTimeCommands(VkCommandBuffer _commandBuffer);
 	void createImage(uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& imageMemory);
 	VkImageView createImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags);
 

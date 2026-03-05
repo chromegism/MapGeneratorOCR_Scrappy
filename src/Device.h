@@ -205,6 +205,9 @@ public:
 	}
 
 	void waitIdle() const noexcept { vkDeviceWaitIdle(handle_); }
+	void submitGraphics(const std::vector<VkSubmitInfo>& infos, VkFence fence) const noexcept {
+		graphicsQueue_.submit(infos, fence);
+	}
 	void present(VkPresentInfoKHR* pPresentInfo) const { 
 		VkResult error_code = vkQueuePresentKHR(presentQueue_.handle(), pPresentInfo);
 		handleVkResult(error_code, "Failed to call vkQueuePresentKHR");

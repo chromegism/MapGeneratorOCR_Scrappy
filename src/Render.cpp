@@ -28,7 +28,7 @@ void Renderer::init(SDL_Window* window, TerrainGenerator& generator) {
 	device = LogicalDevice(physicalDevice);
 
 	PhysicalDevice::SwapChainSupportDetails swapchainSupport = physicalDevice.swapChainSupportDetails();
-	maxFramesInFlight = Swapchain::chooseImageCount(swapchainSupport.capabilities);
+	uint32_t maxFramesInFlight = Swapchain::chooseImageCount(swapchainSupport.capabilities);
 	swapchain = Swapchain::create(
 		device, surface.handle(), window,
 		Swapchain::chooseSurfaceFormat(swapchainSupport.formats),
@@ -48,7 +48,6 @@ void Renderer::init(SDL_Window* window, TerrainGenerator& generator) {
 	createDescriptorPool();
 	createDescriptorSets();
 	createCommandBuffers();
-	createSyncObjects();
 }
 
 void Renderer::createInstance() {
@@ -367,41 +366,8 @@ VkImageView Renderer::createImageView(VkImage image, VkFormat format, VkImageAsp
 	return imageView;
 }
 
-VkCommandBuffer Renderer::beginSingleTimeCommands() {
-	VkCommandBufferAllocateInfo allocInfo{};
-	allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-	allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-	allocInfo.commandPool = commandPool;
-	allocInfo.commandBufferCount = 1;
-
-	VkCommandBuffer commandBuffer;
-	vkAllocateCommandBuffers(device.handle(), &allocInfo, &commandBuffer);
-
-	VkCommandBufferBeginInfo beginInfo{};
-	beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-	beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-
-	vkBeginCommandBuffer(commandBuffer, &beginInfo);
-
-	return commandBuffer;
-}
-
-void Renderer::endSingleTimeCommands(VkCommandBuffer _commandBuffer) {
-	vkEndCommandBuffer(_commandBuffer);
-
-	VkSubmitInfo submitInfo{};
-	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-	submitInfo.commandBufferCount = 1;
-	submitInfo.pCommandBuffers = &_commandBuffer;
-
-	vkQueueSubmit(device.graphicsQueue().handle(), 1, &submitInfo, VK_NULL_HANDLE);
-	vkQueueWaitIdle(device.graphicsQueue().handle());
-
-	vkFreeCommandBuffers(device.handle(), commandPool, 1, &_commandBuffer);
-}
-
 void Renderer::transitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout) {
-	VkCommandBuffer commandBuffer = beginSingleTimeCommands();
+	VkCommandBuffer commandBuffer = beginSingleTimeCommands(device.handle(), commandPool);
 
 	VkImageMemoryBarrier barrier{};
 	barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
@@ -457,7 +423,7 @@ void Renderer::transitionImageLayout(VkImage image, VkFormat format, VkImageLayo
 		1, &barrier
 	);
 
-	endSingleTimeCommands(commandBuffer);
+	endSingleTimeCommands(device.handle(), commandPool, device.graphicsQueue().handle(), commandBuffer);
 }
 
 void Renderer::createVertexBuffer(TerrainGenerator& generator) {
@@ -467,26 +433,15 @@ void Renderer::createVertexBuffer(TerrainGenerator& generator) {
 	uint32_t bufferLength = generator.details.width * generator.details.height;
 	uint32_t bufferSize = sizeof(glm::vec2) * bufferLength;
 
-	VkBuffer stagingBuffer;
-	VkDeviceMemory stagingBufferMemory;
-	createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory);
+	Buffer stagingBuffer = Buffer::createStaging(device, bufferSize);
 
-	void* data;
-	vkMapMemory(device.handle(), stagingBufferMemory, 0, bufferSize, 0, &data);
+	void* data = stagingBuffer.mapMemory();
 	generator.genVertexChunksInto(static_cast<glm::vec2*>(data));
-	vkUnmapMemory(device.handle(), stagingBufferMemory);
+	stagingBuffer.unmapMemory();
 
-	createBuffer(
-		bufferSize,
-		VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
-		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-		vertexBuffer, vertexBufferMemory
-	);
+	vertexBuffer = Buffer::createVertex(device, bufferSize);
 
-	copyBuffer(stagingBuffer, vertexBuffer, bufferSize);
-
-	vkDestroyBuffer(device.handle(), stagingBuffer, nullptr);
-	vkFreeMemory(device.handle(), stagingBufferMemory, nullptr);
+	vertexBuffer.copyBuffer(stagingBuffer, commandPool);
 
 	DEBUG_LOG << "Successfully created vertex buffer" << std::endl;
 }
@@ -497,21 +452,14 @@ void Renderer::createIndexBuffer(TerrainGenerator& generator) {
 	terrainIndicesLength = generator.calcIndicesLength();
 	VkDeviceSize bufferSize = sizeof(uint32_t) * terrainIndicesLength;
 
-	VkBuffer stagingBuffer;
-	VkDeviceMemory stagingBufferMemory;
-	createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory);
+	Buffer stagingBuffer = Buffer::createStaging(device, bufferSize);
 
-	void* data;
-	vkMapMemory(device.handle(), stagingBufferMemory, 0, bufferSize, 0, &data);
+	void* data = stagingBuffer.mapMemory();
 	generator.genTriangleIndicesInto(static_cast<uint32_t*>(data));
-	vkUnmapMemory(device.handle(), stagingBufferMemory);
+	stagingBuffer.unmapMemory();
 
-	createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, indexBuffer, indexBufferMemory);
-
-	copyBuffer(stagingBuffer, indexBuffer, bufferSize);
-
-	vkDestroyBuffer(device.handle(), stagingBuffer, nullptr);
-	vkFreeMemory(device.handle(), stagingBufferMemory, nullptr);
+	indexBuffer = Buffer::createIndex(device, bufferSize);
+	indexBuffer.copyBuffer(stagingBuffer, commandPool);
 }
 
 void Renderer::createHeightImage(TerrainGenerator& generator) {
@@ -528,27 +476,16 @@ void Renderer::updateHeightImage(TerrainGenerator& generator) {
 	uint32_t bufferLength = generator.details.width * generator.details.height;
 	uint32_t bufferSize = sizeof(float) * bufferLength;
 
-	VkBuffer stagingBuffer;
-	VkDeviceMemory stagingBufferMemory;
-	createBuffer(
-		bufferSize,
-		VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-		stagingBuffer, stagingBufferMemory
-	);
+	Buffer stagingBuffer = Buffer::createStaging(device, bufferSize);
 
-	void* data;
-	vkMapMemory(device.handle(), stagingBufferMemory, 0, sizeof(float) * bufferLength, 0, &data);
+	void* data = stagingBuffer.mapMemory();
 	float* data_as_float = static_cast<float*>(data);
 	generator.genTerrainInto(static_cast<float*>(data));
-	vkUnmapMemory(device.handle(), stagingBufferMemory);
+	stagingBuffer.unmapMemory();
 
 	transitionImageLayout(heightImage.handle(), VK_FORMAT_R32_SFLOAT, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-	copyBufferToImage(stagingBuffer, heightImage.handle(), generator.details.width, generator.details.height);
+	copyBufferToImage(stagingBuffer.handle(), heightImage.handle(), generator.details.width, generator.details.height);
 	transitionImageLayout(heightImage.handle(), VK_FORMAT_R32_SFLOAT, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-
-	vkDestroyBuffer(device.handle(), stagingBuffer, nullptr);
-	vkFreeMemory(device.handle(), stagingBufferMemory, nullptr);
 }
 
 void Renderer::createHeightSampler() {
@@ -609,17 +546,17 @@ void Renderer::createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemor
 }
 
 void Renderer::copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size) {
-	VkCommandBuffer commandBuffer = beginSingleTimeCommands();
+	VkCommandBuffer commandBuffer = beginSingleTimeCommands(device.handle(), commandPool);
 
 	VkBufferCopy copyRegion{};
 	copyRegion.size = size;
 	vkCmdCopyBuffer(commandBuffer, srcBuffer, dstBuffer, 1, &copyRegion);
 
-	endSingleTimeCommands(commandBuffer);
+	endSingleTimeCommands(device.handle(), commandPool, device.graphicsQueue().handle(), commandBuffer);
 }
 
 void Renderer::copyBufferToImage(VkBuffer srcBuffer, VkImage dstImage, uint32_t width, uint32_t height) {
-	VkCommandBuffer commandBuffer = beginSingleTimeCommands();
+	VkCommandBuffer commandBuffer = beginSingleTimeCommands(device.handle(), commandPool);
 
 	VkBufferImageCopy copyRegion{};
 	copyRegion.bufferOffset = 0;
@@ -636,7 +573,7 @@ void Renderer::copyBufferToImage(VkBuffer srcBuffer, VkImage dstImage, uint32_t 
 
 	vkCmdCopyBufferToImage(commandBuffer, srcBuffer, dstImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copyRegion);
 
-	endSingleTimeCommands(commandBuffer);
+	endSingleTimeCommands(device.handle(), commandPool, device.graphicsQueue().handle(), commandBuffer);
 }
 
 void Renderer::createUniformBuffers() {
@@ -654,13 +591,13 @@ void Renderer::createUniformBuffers() {
 
 	VkDeviceSize totalSize = mvpSize + mapSize;
 
-	uniformBuffers.resize(maxFramesInFlight);
-	uniformBuffersMemory.resize(maxFramesInFlight);
-	uniformBuffersMapped.resize(maxFramesInFlight);
+	uniformBuffers.resize(swapchain.maxFramesInFlight());
+	uniformBuffersMemory.resize(swapchain.maxFramesInFlight());
+	uniformBuffersMapped.resize(swapchain.maxFramesInFlight());
 
 	
 
-	for (size_t i = 0; i < maxFramesInFlight; i++) {
+	for (size_t i = 0; i < swapchain.maxFramesInFlight(); i++) {
 		createBuffer(totalSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
 			VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
 			uniformBuffers[i], uniformBuffersMemory[i]);
@@ -673,15 +610,15 @@ void Renderer::createUniformBuffers() {
 void Renderer::createDescriptorPool() {
 	std::array<VkDescriptorPoolSize, 2> poolSizes{};
 	poolSizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-	poolSizes[0].descriptorCount = static_cast<uint32_t>(maxFramesInFlight * 2);
+	poolSizes[0].descriptorCount = static_cast<uint32_t>(swapchain.maxFramesInFlight() * 2);
 	poolSizes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-	poolSizes[1].descriptorCount = static_cast<uint32_t>(maxFramesInFlight);
+	poolSizes[1].descriptorCount = static_cast<uint32_t>(swapchain.maxFramesInFlight());
 
 	VkDescriptorPoolCreateInfo poolInfo{};
 	poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
 	poolInfo.poolSizeCount = static_cast<uint32_t>(poolSizes.size());
 	poolInfo.pPoolSizes = poolSizes.data();
-	poolInfo.maxSets = static_cast<uint32_t>(maxFramesInFlight);
+	poolInfo.maxSets = static_cast<uint32_t>(swapchain.maxFramesInFlight());
 
 	if (vkCreateDescriptorPool(device.handle(), &poolInfo, nullptr, &descriptorPool) != VK_SUCCESS) {
 		throw std::runtime_error("failed to create descriptor pool!");
@@ -689,19 +626,19 @@ void Renderer::createDescriptorPool() {
 }
 
 void Renderer::createDescriptorSets() {
-	std::vector<VkDescriptorSetLayout> layouts(maxFramesInFlight, descriptorSetLayout);
+	std::vector<VkDescriptorSetLayout> layouts(swapchain.maxFramesInFlight(), descriptorSetLayout);
 	VkDescriptorSetAllocateInfo allocInfo{};
 	allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
 	allocInfo.descriptorPool = descriptorPool;
-	allocInfo.descriptorSetCount = static_cast<uint32_t>(maxFramesInFlight);
+	allocInfo.descriptorSetCount = static_cast<uint32_t>(swapchain.maxFramesInFlight());
 	allocInfo.pSetLayouts = layouts.data();
 
-	descriptorSets.resize(maxFramesInFlight);
+	descriptorSets.resize(swapchain.maxFramesInFlight());
 	if (vkAllocateDescriptorSets(device.handle(), &allocInfo, descriptorSets.data()) != VK_SUCCESS) {
 		throw std::runtime_error("failed to allocate descriptor sets!");
 	}
 
-	for (size_t i = 0; i < maxFramesInFlight; i++) {
+	for (size_t i = 0; i < swapchain.maxFramesInFlight(); i++) {
 		// --- MVP buffer (binding 0) ---
 		VkDescriptorBufferInfo mvpBufferInfo{};
 		mvpBufferInfo.buffer = uniformBuffers[i];
@@ -766,7 +703,7 @@ uint32_t Renderer::findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags pro
 }
 
 void Renderer::createCommandBuffers() {
-	commandBuffers.resize(maxFramesInFlight);
+	commandBuffers.resize(swapchain.maxFramesInFlight());
 
 	VkCommandBufferAllocateInfo allocInfo{};
 	allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
@@ -821,12 +758,12 @@ void Renderer::recordCommandBuffer(VkCommandBuffer _commandBuffer, uint32_t imag
 		scissor.extent = swapchain.extent();
 		vkCmdSetScissor(_commandBuffer, 0, 1, &scissor);
 
-		VkBuffer vertexBuffers[] = { vertexBuffer };
+		VkBuffer vertexBuffers[] = { vertexBuffer.handle()};
 		VkDeviceSize offsets[] = { 0 };
 		vkCmdBindVertexBuffers(_commandBuffer, 0, 1, vertexBuffers, offsets);
-		vkCmdBindIndexBuffer(_commandBuffer, indexBuffer, 0, VK_INDEX_TYPE_UINT32);
+		vkCmdBindIndexBuffer(_commandBuffer, indexBuffer.handle(), 0, VK_INDEX_TYPE_UINT32);
 
-		vkCmdBindDescriptorSets(_commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSets[currentFrame], 0, nullptr);
+		vkCmdBindDescriptorSets(_commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSets[swapchain.currentFrameIndex()], 0, nullptr);
 
 		vkCmdDrawIndexed(_commandBuffer, static_cast<uint32_t>(terrainIndicesLength), 1, 0, 0, 0);
 	}
@@ -837,29 +774,6 @@ void Renderer::recordCommandBuffer(VkCommandBuffer _commandBuffer, uint32_t imag
 	}
 }
 
-void Renderer::createSyncObjects() {
-	imageAvailableSemaphores.resize(maxFramesInFlight);
-	renderFinishedSemaphores.resize(maxFramesInFlight);
-	inFlightFences.resize(maxFramesInFlight);
-
-	VkSemaphoreCreateInfo semaphoreInfo{};
-	semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
-
-	VkFenceCreateInfo fenceInfo{};
-	fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
-	fenceInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
-
-	for (size_t i = 0; i < maxFramesInFlight; i++) {
-		if (vkCreateSemaphore(device.handle(), &semaphoreInfo, nullptr, &imageAvailableSemaphores.at(i)) != VK_SUCCESS ||
-			vkCreateSemaphore(device.handle(), &semaphoreInfo, nullptr, &renderFinishedSemaphores.at(i)) != VK_SUCCESS ||
-			vkCreateFence(device.handle(), &fenceInfo, nullptr, &inFlightFences.at(i)) != VK_SUCCESS) {
-
-			throw std::runtime_error("failed to create synchronization objects for a frame!");
-		}
-	}
-
-	DEBUG_LOG << "Successfully created sync objects" << std::endl;
-}
 
 void Renderer::destroy() {
 	vkDestroyPipeline(device.handle(), graphicsPipeline, nullptr);
@@ -879,17 +793,8 @@ void Renderer::destroy() {
 	vkDestroySampler(device.handle(), heightSampler, nullptr);
 	heightImage.destroy();
 
-	vkDestroyBuffer(device.handle(), indexBuffer, nullptr);
-	vkFreeMemory(device.handle(), indexBufferMemory, nullptr);
-
-	vkDestroyBuffer(device.handle(), vertexBuffer, nullptr);
-	vkFreeMemory(device.handle(), vertexBufferMemory, nullptr);
-
-	for (size_t i = 0; i < inFlightFences.size(); i++) {
-		vkDestroySemaphore(device.handle(), renderFinishedSemaphores[i], nullptr);
-		vkDestroySemaphore(device.handle(), imageAvailableSemaphores[i], nullptr);
-		vkDestroyFence(device.handle(), inFlightFences[i], nullptr);
-	}
+	indexBuffer.destroy();
+	vertexBuffer.destroy();
 
 	vkDestroyCommandPool(device.handle(), commandPool, nullptr);
 
@@ -928,33 +833,31 @@ void Renderer::updateUniformBuffers(uint32_t currentImage) {
 }
 
 void Renderer::drawFrame() {
-	vkWaitForFences(device.handle(), 1, &inFlightFences[currentFrame], VK_TRUE, UINT64_MAX);
-	vkResetFences(device.handle(), 1, &inFlightFences[currentFrame]);
+	swapchain.waitForFence();
+	
+	uint32_t imageIndex = swapchain.nextImage();
+	vkResetCommandBuffer(commandBuffers[swapchain.currentFrameIndex()], 0);
+	recordCommandBuffer(commandBuffers[swapchain.currentFrameIndex()], imageIndex);
 
-	uint32_t imageIndex;
-	vkAcquireNextImageKHR(device.handle(), swapchain.handle(), UINT64_MAX, imageAvailableSemaphores[currentFrame], VK_NULL_HANDLE, &imageIndex);
-	vkResetCommandBuffer(commandBuffers[currentFrame], 0);
-	recordCommandBuffer(commandBuffers[currentFrame], imageIndex);
-
-	updateUniformBuffers(currentFrame);
+	updateUniformBuffers(swapchain.currentFrameIndex());
 
 	VkSubmitInfo submitInfo{};
 	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 
-	VkSemaphore waitSemaphores[] = { imageAvailableSemaphores[currentFrame] };
+	VkSemaphore waitSemaphores[] = { swapchain.currentImageAvailableSemaphore() };
 	VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
 	submitInfo.waitSemaphoreCount = 1;
 	submitInfo.pWaitSemaphores = waitSemaphores;
 	submitInfo.pWaitDstStageMask = waitStages;
 
 	submitInfo.commandBufferCount = 1;
-	submitInfo.pCommandBuffers = &commandBuffers[currentFrame];
+	submitInfo.pCommandBuffers = &commandBuffers[swapchain.currentFrameIndex()];
 
-	VkSemaphore signalSemaphores[] = { renderFinishedSemaphores[currentFrame] };
+	VkSemaphore signalSemaphores[] = { swapchain.currentRenderFinishedSemaphore() };
 	submitInfo.signalSemaphoreCount = 1;
 	submitInfo.pSignalSemaphores = signalSemaphores;
 
-	device.graphicsQueue().submit({ submitInfo }, inFlightFences[currentFrame]);
+	device.submitGraphics({ submitInfo }, swapchain.currentFence());
 
 	VkSubpassDependency dependency{};
 	dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
@@ -980,7 +883,7 @@ void Renderer::drawFrame() {
 
 	device.present(&presentInfo);
 
-	currentFrame = (currentFrame + 1) % maxFramesInFlight;
+	swapchain.nextFrame();
 }
 
 void Renderer::waitIdle() {

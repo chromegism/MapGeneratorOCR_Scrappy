@@ -144,6 +144,7 @@ copy /Y "$(ProjectDir)shaders\" "$(TargetDir)shaders\"</Command>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="App.cpp" />
+    <ClCompile Include="Buffer.cpp" />
     <ClCompile Include="Device.cpp" />
     <ClCompile Include="Framebuffer.cpp" />
     <ClCompile Include="Image.cpp" />
@@ -159,6 +160,7 @@ copy /Y "$(ProjectDir)shaders\" "$(TargetDir)shaders\"</Command>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="App.h" />
+    <ClInclude Include="Buffer.h" />
     <ClInclude Include="DEBUG_LOG.h" />
     <ClInclude Include="Device.h" />
     <ClInclude Include="Framebuffer.h" />

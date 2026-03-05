@@ -94,10 +94,12 @@ Swapchain::Swapchain(const SwapchainCreateInfos& info) : device_(&info.device) {
 	extent_ = info.extent;
 	surfaceFormat_ = info.surfaceFormat;
 	window_ = info.window;
+	maxFramesInFlight_ = info.imageCount;
 
 	genImages(info.imageCount);
 	genRenderPass();
 	genFramebuffers();
+	genSyncObjects();
 }
 
 void Swapchain::genImages(uint32_t imageCount) {
@@ -180,4 +182,41 @@ void Swapchain::genFramebuffers() {
 			extent_.width, extent_.height
 		);
 	}
+}
+
+void Swapchain::genSyncObjects() {
+	imageAvailableSemaphores_.resize(maxFramesInFlight_);
+	renderFinishedSemaphores_.resize(maxFramesInFlight_);
+	inFlightFences_.resize(maxFramesInFlight_);
+
+	VkSemaphoreCreateInfo semaphoreInfo{};
+	semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+
+	VkFenceCreateInfo fenceInfo{};
+	fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+	fenceInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
+
+	for (size_t i = 0; i < maxFramesInFlight_; i++) {
+		if (vkCreateSemaphore(device_->handle(), &semaphoreInfo, nullptr, &imageAvailableSemaphores_.at(i)) != VK_SUCCESS ||
+			vkCreateSemaphore(device_->handle(), &semaphoreInfo, nullptr, &renderFinishedSemaphores_.at(i)) != VK_SUCCESS ||
+			vkCreateFence(device_->handle(), &fenceInfo, nullptr, &inFlightFences_.at(i)) != VK_SUCCESS) {
+
+			throw std::runtime_error("failed to create synchronization objects for a frame!");
+		}
+	}
+}
+
+uint32_t Swapchain::nextImage() {
+	uint32_t imageIndex;
+	vkAcquireNextImageKHR(device_->handle(), handle_, UINT64_MAX, imageAvailableSemaphores_[currentFrame_], VK_NULL_HANDLE, &imageIndex);
+	return imageIndex;
+}
+
+void Swapchain::nextFrame() {
+	currentFrame_ = (currentFrame_ + 1) % maxFramesInFlight_;
+}
+
+void Swapchain::waitForFence() {
+	vkWaitForFences(device_->handle(), 1, &inFlightFences_[currentFrame_], VK_TRUE, UINT64_MAX);
+	vkResetFences(device_->handle(), 1, &inFlightFences_[currentFrame_]);
 }
