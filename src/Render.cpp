@@ -312,9 +312,6 @@ void Renderer::createCommandPool() {
 }
 
 void Renderer::createVertexBuffer(TerrainGenerator& generator) {
-	mapDetailsData.bufferSize = glm::ivec2(generator.details.width, generator.details.height);
-	mapDetailsData.displaySize = glm::vec2(4, 4);
-
 	uint32_t bufferLength = generator.details.width * generator.details.height;
 	uint32_t bufferSize = sizeof(glm::vec2) * bufferLength;
 
