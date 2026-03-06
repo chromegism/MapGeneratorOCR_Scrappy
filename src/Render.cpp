@@ -348,7 +348,9 @@ void Renderer::createIndexBuffer(TerrainGenerator& generator) {
 }
 
 void Renderer::createHeightImage(TerrainGenerator& generator) {
+	heightImageStager = Buffer::createStaging(device, sizeof(float) * generator.details.width * generator.details.height);
 	heightImage = Image::createStorage(device, generator.details.width, generator.details.height, VK_FORMAT_R32_SFLOAT, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT);
+	heightImageStagerMapped = heightImageStager.mapMemory<float>();
 	updateHeightImage(generator);
 
 	DEBUG_LOG << "Successfully created height image" << std::endl;
@@ -361,13 +363,14 @@ void Renderer::updateHeightImage(TerrainGenerator& generator) {
 	uint32_t bufferLength = generator.details.width * generator.details.height;
 	uint32_t bufferSize = sizeof(float) * bufferLength;
 
-	Buffer stagingBuffer = Buffer::createStaging(device, bufferSize);
+	if (bufferSize != heightImageStager.size()) {
+		heightImageStager = Buffer::createStaging(device, bufferSize);
+		heightImageStagerMapped = heightImageStager.mapMemory<float>();
+	}
 
-	float* data = stagingBuffer.mapMemory<float>();
-	generator.genTerrainInto(data);
-	stagingBuffer.unmapMemory();
+	generator.genTerrainInto(heightImageStagerMapped);
 
-	heightImage.copyBuffer(stagingBuffer, commandPool);
+	heightImage.copyBuffer(heightImageStager, commandPool);
 }
 
 void Renderer::createHeightSampler() {
@@ -643,6 +646,8 @@ void Renderer::destroy() {
 
 	vkDestroySampler(device.handle(), heightSampler, nullptr);
 	heightImage.destroy();
+	//heightImageStager.unmapMemory();
+	heightImageStager.destroy();
 
 	indexBuffer.destroy();
 	vertexBuffer.destroy();

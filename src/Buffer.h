@@ -13,6 +13,8 @@ class Buffer {
 	VkBufferUsageFlags usageFlags_ = 0;				// trivial
 	VkMemoryPropertyFlags memoryPropertyFlags_ = 0;	// trivial
 
+	bool isMapped_ = false;							// trivial
+
 	void exchangeHandles(Buffer& other) noexcept {
 		device_ = std::exchange(other.device_, nullptr);
 		handle_ = std::exchange(other.handle_, VK_NULL_HANDLE);
@@ -20,6 +22,7 @@ class Buffer {
 		size_ = other.size_;
 		usageFlags_ = other.usageFlags_;
 		memoryPropertyFlags_ = other.memoryPropertyFlags_;
+		isMapped_ = other.isMapped_;
 	}
 	void clearHandles() noexcept {
 		device_ = nullptr;
@@ -28,6 +31,7 @@ class Buffer {
 		size_ = 0;
 		usageFlags_ = 0;
 		memoryPropertyFlags_ = 0;
+		isMapped_ = false;
 	}
 
 	void genBuffer(VkDeviceSize size);
@@ -61,8 +65,12 @@ public:
 	VkBufferUsageFlags usageFlags() const noexcept { return usageFlags_; }
 	VkMemoryPropertyFlags memoryPropertyFlags() const noexcept { return memoryPropertyFlags_; }
 	bool isValid() const noexcept { return handle_ != VK_NULL_HANDLE; }
+	bool isMapped() const noexcept { return isMapped_; }
 
 	void destroy() noexcept {
+		if (isMapped()) {
+			unmapMemory();
+		}
 		if (isValid()) {
 			vkDestroyBuffer(device_->handle(), handle_, nullptr);
 			vkFreeMemory(device_->handle(), memory_, nullptr);
@@ -73,27 +81,33 @@ public:
 	void copyBuffer(const Buffer& other, VkCommandPool commandPool);
 
 	template<NonPointer T>
-	T* mapMemory(VkDeviceSize offset, VkDeviceSize size) {
+	T* mapMemory(VkDeviceSize offset, VkDeviceSize size) noexcept {
+		if (isMapped_) {
+			unmapMemory();
+			std::cerr << "Attempted to map buffer memory twice! Unmapping...\n";
+		}
 		void* data;
 		vkMapMemory(device_->handle(), memory_, 0, size, 0, &data);
+		isMapped_ = true;
 		return static_cast<T*>(data);
 	}
 
 	template<NonPointer T>
-	T* mapMemory(VkDeviceSize offset) {
+	T* mapMemory(VkDeviceSize offset) noexcept  {
 		return mapMemory<T>(offset, size_);
 	}
 
 	template<NonPointer T>
-	T* mapMemory() {
+	T* mapMemory() noexcept  {
 		return mapMemory<T>(0, size_);
 	}
 
-	void unmapMemory() {
+	void unmapMemory() noexcept  {
+		isMapped_ = false;
 		vkUnmapMemory(device_->handle(), memory_);
 	}
 
-	~Buffer() { destroy(); }
+	~Buffer() noexcept { destroy(); }
 
 	static Buffer createStaging(const LogicalDevice& device, VkDeviceSize size) {
 		return Buffer(device, size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);

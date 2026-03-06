@@ -93,6 +93,8 @@ private:
 	Buffer vertexBuffer;
 	Buffer indexBuffer;
 
+	Buffer heightImageStager;
+	float* heightImageStagerMapped;
 	Image heightImage;
 	VkSampler heightSampler;
 
