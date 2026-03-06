@@ -71,10 +71,9 @@ void Image::genImageView(VkFormat _format, VkImageAspectFlags _aspectFlags) {
 }
 
 void Image::copyBuffer(const Buffer& other, VkCommandPool commandPool) {
-	std::array<VkCommandBuffer, 3> commandBuffers;
+	VkCommandBuffer commandBuffer;
 
-	commandBuffers[0] = transitionLayout(VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, commandPool);
-	commandBuffers[1] = beginCommand(device_->handle(), commandPool);
+	commandBuffer = transitionLayout(VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, commandPool, true);
 
 	VkBufferImageCopy copyRegion{};
 	copyRegion.bufferOffset = 0;
@@ -89,16 +88,14 @@ void Image::copyBuffer(const Buffer& other, VkCommandPool commandPool) {
 	copyRegion.imageOffset = { 0, 0, 0 };
 	copyRegion.imageExtent = { extent_.width, extent_.height, 1 };
 
-	vkCmdCopyBufferToImage(commandBuffers[1], other.handle(), handle_, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copyRegion);
-	endCommand(commandBuffers[1]);
+	vkCmdCopyBufferToImage(commandBuffer, other.handle(), handle_, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copyRegion);
+	endCommand(commandBuffer);
 
-	commandBuffers[2] = transitionLayout(layout_, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, commandPool);
-	submitCommands(deviceHandle(), commandPool, device().graphicsQueue().handle(), commandBuffers);
+	transitionLayout(layout_, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, commandPool, commandBuffer, false);
+	submitSingleCommand(deviceHandle(), commandPool, device().graphicsQueue().handle(), commandBuffer);
 }
 
-VkCommandBuffer Image::transitionLayout(VkImageLayout oldLayout, VkImageLayout newLayout, VkCommandPool commandPool) {
-	VkCommandBuffer commandBuffer = beginCommand(device_->handle(), commandPool);
-
+void Image::transitionLayout(VkImageLayout oldLayout, VkImageLayout newLayout, VkCommandPool commandPool, VkCommandBuffer commandBuffer, bool leaveOpen) {
 	VkImageMemoryBarrier barrier{};
 	barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
 	barrier.oldLayout = oldLayout;
@@ -153,9 +150,16 @@ VkCommandBuffer Image::transitionLayout(VkImageLayout oldLayout, VkImageLayout n
 		1, &barrier
 	);
 
-	endCommand(commandBuffer);
+	if (!leaveOpen)
+		endCommand(commandBuffer);
 
 	layout_ = newLayout;
+}
+
+VkCommandBuffer Image::transitionLayout(VkImageLayout oldLayout, VkImageLayout newLayout, VkCommandPool commandPool, bool leaveOpen) {
+	VkCommandBuffer commandBuffer = beginCommand(device_->handle(), commandPool);
+
+	transitionLayout(oldLayout, newLayout, commandPool, commandBuffer, leaveOpen);
 
 	return commandBuffer;
 }

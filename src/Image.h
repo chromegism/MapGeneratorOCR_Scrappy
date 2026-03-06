@@ -115,7 +115,8 @@ public:
 	}
 
 	void copyBuffer(const Buffer& other, VkCommandPool commandPool);
-	VkCommandBuffer transitionLayout(VkImageLayout oldLayout, VkImageLayout newLayout, VkCommandPool commandPool);
+	void transitionLayout(VkImageLayout oldLayout, VkImageLayout newLayout, VkCommandPool commandPool, VkCommandBuffer commandBuffer, bool leaveOpen = false);
+	VkCommandBuffer transitionLayout(VkImageLayout oldLayout, VkImageLayout newLayout, VkCommandPool commandPool, bool leaveOpen = false);
 
 	static VkFormat findDepthFormat(VkPhysicalDevice _physicalDevice) {
 		return findSupportedFormat(_physicalDevice,
