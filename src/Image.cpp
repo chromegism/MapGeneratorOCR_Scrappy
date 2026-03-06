@@ -89,7 +89,6 @@ void Image::copyBuffer(const Buffer& other, VkCommandPool commandPool) {
 	copyRegion.imageExtent = { extent_.width, extent_.height, 1 };
 
 	vkCmdCopyBufferToImage(commandBuffer, other.handle(), handle_, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copyRegion);
-	endCommand(commandBuffer);
 
 	transitionLayout(layout_, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, commandPool, commandBuffer, false);
 	submitSingleCommand(deviceHandle(), commandPool, device().graphicsQueue().handle(), commandBuffer);
