@@ -427,27 +427,6 @@ void Renderer::createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemor
 	vkBindBufferMemory(device.handle(), buffer, bufferMemory, 0);
 }
 
-void Renderer::copyBufferToImage(VkBuffer srcBuffer, VkImage dstImage, uint32_t width, uint32_t height) {
-	VkCommandBuffer commandBuffer = beginSingleTimeCommands(device.handle(), commandPool);
-
-	VkBufferImageCopy copyRegion{};
-	copyRegion.bufferOffset = 0;
-	copyRegion.bufferRowLength = 0;
-	copyRegion.bufferImageHeight = 0;
-
-	copyRegion.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-	copyRegion.imageSubresource.layerCount = 1;
-	copyRegion.imageSubresource.mipLevel = 0;
-	copyRegion.imageSubresource.baseArrayLayer = 0;
-
-	copyRegion.imageOffset = { 0, 0, 0 };
-	copyRegion.imageExtent = { width, height, 1 };
-
-	vkCmdCopyBufferToImage(commandBuffer, srcBuffer, dstImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copyRegion);
-
-	endSingleTimeCommands(device.handle(), commandPool, device.graphicsQueue().handle(), commandBuffer);
-}
-
 void Renderer::createUniformBuffers() {
 	VkPhysicalDeviceProperties props;
 	vkGetPhysicalDeviceProperties(physicalDevice.handle(), &props);
