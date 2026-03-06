@@ -8,12 +8,13 @@
 
 class Image {
 private:
-	const LogicalDevice* device_ = nullptr;		// non owning
-	VkImage handle_ = VK_NULL_HANDLE;			// owning
-	VkDeviceMemory memory_ = VK_NULL_HANDLE;	// owning
-	VkImageView view_ = VK_NULL_HANDLE;			// owning
-	VkFormat format_ = VK_FORMAT_UNDEFINED;		// trivial
-	VkExtent2D extent_;							// trivial
+	const LogicalDevice* device_ = nullptr;				// non owning
+	VkImage handle_ = VK_NULL_HANDLE;					// owning
+	VkDeviceMemory memory_ = VK_NULL_HANDLE;			// owning
+	VkImageView view_ = VK_NULL_HANDLE;					// owning
+	VkFormat format_ = VK_FORMAT_UNDEFINED;				// trivial
+	VkExtent2D extent_ = {0,0};							// trivial
+	VkImageLayout layout_ = VK_IMAGE_LAYOUT_UNDEFINED;	// trivial
 
 	void setHandles(const Image& other) {
 		device_ = other.device_;
@@ -22,14 +23,16 @@ private:
 		view_ = other.view_;
 		format_ = other.format_;
 		extent_ = other.extent_;
+		layout_ = other.layout_;
 	}
-	void setHandles(const LogicalDevice* _device, VkImage _handle, VkDeviceMemory _memory, VkImageView _view, VkFormat _format, VkExtent2D _extent) {
+	void setHandles(const LogicalDevice* _device, VkImage _handle, VkDeviceMemory _memory, VkImageView _view, VkFormat _format, VkExtent2D _extent, VkImageLayout _layout) {
 		device_ = _device;
 		handle_ = _handle;
 		memory_ = _memory;
 		view_ = _view;
 		format_ = _format;
 		extent_ = _extent;
+		layout_ = _layout;
 	}
 	void clearHandles() {
 		device_ = nullptr;
@@ -38,6 +41,7 @@ private:
 		view_ = VK_NULL_HANDLE;
 		format_ = VK_FORMAT_UNDEFINED;
 		extent_ = {};
+		layout_ = {};
 	}
 	void exchangeHandles(Image& other) {
 		device_ = std::exchange(other.device_, VK_NULL_HANDLE);
@@ -46,6 +50,7 @@ private:
 		view_ = std::exchange(other.view_, VK_NULL_HANDLE);
 		format_ = other.format_;
 		extent_ = other.extent_;
+		layout_ = other.layout_;
 	}
 	
 	void genImage(VkPhysicalDevice _physicalDevice, VkImageUsageFlags usage, VkSampleCountFlagBits samples);
@@ -62,9 +67,9 @@ private:
 	}
 
 public:
-	static Image wrapExisting(const LogicalDevice& _device, VkImage _handle, VkDeviceMemory _memory, VkImageView _view, VkFormat _format, VkExtent2D _extent) {
+	static Image wrapExisting(const LogicalDevice& _device, VkImage _handle, VkDeviceMemory _memory, VkImageView _view, VkFormat _format, VkExtent2D _extent, VkImageLayout _layout) {
 		auto im = Image();
-		im.setHandles(&_device, _handle, _memory, _view, _format, _extent);
+		im.setHandles(&_device, _handle, _memory, _view, _format, _extent, _layout);
 		return im;
 	}
 	static Image createColor(const LogicalDevice& dev, uint32_t width, uint32_t height, VkFormat format) {
@@ -110,6 +115,7 @@ public:
 	}
 
 	void copyBuffer(const Buffer& other, VkCommandPool commandPool);
+	void transitionLayout(VkImageLayout oldLayout, VkImageLayout newLayout, VkCommandPool commandPool);
 
 	static VkFormat findDepthFormat(VkPhysicalDevice _physicalDevice) {
 		return findSupportedFormat(_physicalDevice,
@@ -126,8 +132,6 @@ public:
 		);
 	}
 };
-
-
 
 
 
