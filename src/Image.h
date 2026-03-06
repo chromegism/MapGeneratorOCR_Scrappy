@@ -6,6 +6,8 @@
 #include "Tools.h"
 #include "Buffer.h"
 
+
+// TO-DO Implement a DeviceMemory class to allow for suballocation
 class Image {
 private:
 	const LogicalDevice* device_ = nullptr;				// non owning
@@ -48,9 +50,9 @@ private:
 		handle_ = std::exchange(other.handle_, VK_NULL_HANDLE);
 		memory_ = std::exchange(other.memory_, VK_NULL_HANDLE);
 		view_ = std::exchange(other.view_, VK_NULL_HANDLE);
-		format_ = other.format_;
-		extent_ = other.extent_;
-		layout_ = other.layout_;
+		format_ = std::exchange(other.format_, VK_FORMAT_UNDEFINED);
+		extent_ = std::exchange(other.extent_, {0,0});
+		layout_ = std::exchange(other.layout_, VK_IMAGE_LAYOUT_UNDEFINED);
 	}
 	
 	void genImage(VkPhysicalDevice _physicalDevice, VkImageUsageFlags usage, VkSampleCountFlagBits samples);
@@ -198,7 +200,7 @@ public:
 	void destroy() {
 		if (isViewValid()) {
 			vkDestroyImageView(deviceHandle_, view_, nullptr);
-			clearHandles();
 		}
+		clearHandles();
 	}
 };
