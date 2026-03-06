@@ -107,7 +107,7 @@ VkFormat findSupportedFormat(VkPhysicalDevice _physicalDevice, const std::vector
 	throw std::runtime_error("failed to find supported format!");
 }
 
-VkCommandBuffer beginSingleTimeCommands(VkDevice device, VkCommandPool commandPool) {
+VkCommandBuffer beginCommand(VkDevice device, VkCommandPool commandPool) {
 	VkCommandBufferAllocateInfo allocInfo{};
 	allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
 	allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
@@ -126,16 +126,35 @@ VkCommandBuffer beginSingleTimeCommands(VkDevice device, VkCommandPool commandPo
 	return commandBuffer;
 }
 
-void endSingleTimeCommands(VkDevice device, VkCommandPool commandPool, VkQueue queue, VkCommandBuffer _commandBuffer) {
-	vkEndCommandBuffer(_commandBuffer);
+void endCommand(VkCommandBuffer commandBuffer) {
+	vkEndCommandBuffer(commandBuffer);
+}
 
+void submitSingleCommand(VkDevice device, VkCommandPool commandPool, VkQueue queue, VkCommandBuffer commandBuffer) {
 	VkSubmitInfo submitInfo{};
 	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 	submitInfo.commandBufferCount = 1;
-	submitInfo.pCommandBuffers = &_commandBuffer;
+	submitInfo.pCommandBuffers = &commandBuffer;
 
 	vkQueueSubmit(queue, 1, &submitInfo, VK_NULL_HANDLE);
 	vkQueueWaitIdle(queue);
 
-	vkFreeCommandBuffers(device, commandPool, 1, &_commandBuffer);
+	vkFreeCommandBuffers(device, commandPool, 1, &commandBuffer);
+}
+
+void endAndSubmitCommand(VkDevice device, VkCommandPool commandPool, VkQueue queue, VkCommandBuffer commandBuffer) {
+	endCommand(commandBuffer);
+	submitSingleCommand(device, commandPool, queue, commandBuffer);
+}
+
+void submitCommands(VkDevice device, VkCommandPool commandPool, VkQueue queue, size_t count, const VkCommandBuffer* commandBuffers) {
+	VkSubmitInfo submitInfo{};
+	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+	submitInfo.commandBufferCount = static_cast<uint32_t>(count);
+	submitInfo.pCommandBuffers = commandBuffers;
+
+	vkQueueSubmit(queue, 1, &submitInfo, VK_NULL_HANDLE);
+	vkQueueWaitIdle(queue);
+
+	vkFreeCommandBuffers(device, commandPool, 1, commandBuffers);
 }

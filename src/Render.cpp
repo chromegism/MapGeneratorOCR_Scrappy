@@ -329,7 +329,6 @@ void Renderer::createVertexBuffer(TerrainGenerator& generator) {
 }
 
 
-
 void Renderer::createIndexBuffer(TerrainGenerator& generator) {
 	VkDeviceSize terrainIndicesLength = generator.calcIndicesLength();
 	VkDeviceSize bufferSize = sizeof(uint32_t) * terrainIndicesLength;

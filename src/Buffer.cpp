@@ -32,11 +32,11 @@ void Buffer::copyBuffer(const Buffer& other, VkCommandPool commandPool) {
 	assert(usageFlags_ & VK_BUFFER_USAGE_TRANSFER_DST_BIT);
 	assert(other.usageFlags_ & VK_BUFFER_USAGE_TRANSFER_SRC_BIT);
 
-	VkCommandBuffer commandBuffer = beginSingleTimeCommands(device_->handle(), commandPool);
+	VkCommandBuffer commandBuffer = beginCommand(device_->handle(), commandPool);
 
 	VkBufferCopy copyRegion{};
 	copyRegion.size = size_;
 	vkCmdCopyBuffer(commandBuffer, other.handle_, handle_, 1, &copyRegion);
 
-	endSingleTimeCommands(device_->handle(), commandPool, device_->graphicsQueue().handle(), commandBuffer);
+	endAndSubmitCommand(device_->handle(), commandPool, device_->graphicsQueue().handle(), commandBuffer);
 }
