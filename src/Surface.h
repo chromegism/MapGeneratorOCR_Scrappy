@@ -20,6 +20,11 @@ private:
 	// handle_ == VK_NULL_HANDLE  <=>  no owned surface
 	VkSurfaceKHR handle_ = VK_NULL_HANDLE;
 
+	void exchangeHandles(Surface& other) {
+		instanceHandle_ = std::exchange(other.instanceHandle_, VK_NULL_HANDLE);
+		handle_ = std::exchange(other.handle_, VK_NULL_HANDLE);
+	}
+
 	void setHandles(VkInstance _instanceHandle, VkSurfaceKHR _handle) {
 		instanceHandle_ = _instanceHandle;
 		handle_ = _handle;
@@ -47,8 +52,7 @@ public:
 		if (this != &other) {
 			destroy();
 
-			setHandles(other.instanceHandle(), other.handle());
-			other.clearHandles();
+			exchangeHandles(other);
 		}
 		return *this;
 	}
@@ -61,7 +65,7 @@ public:
 	bool isValid() const noexcept { return handle_ != VK_NULL_HANDLE; }
 
 	void destroy() {
-		if (isValid() && instanceHandle_ != VK_NULL_HANDLE) {
+		if (isValid()) {
 			vkDestroySurfaceKHR(instanceHandle_, handle_, nullptr);
 			clearHandles();
 		}

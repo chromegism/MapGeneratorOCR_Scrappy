@@ -78,7 +78,7 @@ public:
 		clearHandles();
 	}
 
-	void copyBuffer(const Buffer& other, VkCommandPool commandPool);
+	void copyBuffer(const Buffer& other, VkCommandBuffer commandBuffer);
 
 	template<NonPointer T>
 	T* mapMemory(VkDeviceSize offset, VkDeviceSize size) noexcept {

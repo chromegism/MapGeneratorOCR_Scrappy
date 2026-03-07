@@ -43,6 +43,7 @@ void Renderer::init(SDL_Window* window, TerrainGenerator& generator) {
 	createVertexBuffer(generator);
 	createIndexBuffer(generator);
 	createHeightImage(generator);
+	createErosionImages(generator);
 	createHeightSampler();
 	createUniformBuffers();
 	createDescriptorPool();
@@ -261,9 +262,8 @@ void Renderer::createGraphicsPipeline() {
 	pipelineLayoutInfo.pushConstantRangeCount = 0; // Optional
 	pipelineLayoutInfo.pPushConstantRanges = nullptr; // Optional
 
-	if (vkCreatePipelineLayout(device.handle(), &pipelineLayoutInfo, nullptr, &pipelineLayout) != VK_SUCCESS) {
-		throw std::runtime_error("failed to create pipeline layout!");
-	}
+	VkResult error_code = vkCreatePipelineLayout(device.handle(), &pipelineLayoutInfo, nullptr, &pipelineLayout);
+	handleVkResult(error_code, "Failed to create pipeline layout");
 
 
 	VkGraphicsPipelineCreateInfo pipelineInfo{};
@@ -284,9 +284,8 @@ void Renderer::createGraphicsPipeline() {
 	pipelineInfo.basePipelineHandle = VK_NULL_HANDLE; // Optional
 	pipelineInfo.basePipelineIndex = -1; // Optional
 
-	if (vkCreateGraphicsPipelines(device.handle(), VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &graphicsPipeline) != VK_SUCCESS) {
-		throw std::runtime_error("failed to create graphics pipeline!");
-	}
+	error_code = vkCreateGraphicsPipelines(device.handle(), VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &graphicsPipeline);
+	handleVkResult(error_code, "Failed to create graphics pipeline");
 
 
 	vkDestroyShaderModule(device.handle(), vertShaderModule, nullptr);
@@ -323,7 +322,11 @@ void Renderer::createVertexBuffer(TerrainGenerator& generator) {
 
 	vertexBuffer = Buffer::createVertex(device, bufferSize);
 
-	vertexBuffer.copyBuffer(stagingBuffer, commandPool);
+	VkCommandBuffer commandBuffer = beginSingleCommand(device.handle(), commandPool);
+	vertexBuffer.copyBuffer(stagingBuffer, commandBuffer);
+	endCommand(commandBuffer);
+	device.graphicsSubmitCommand(commandPool, commandBuffer);
+	//endAndSubmitCommand(device.handle(), commandPool, device.graphicsQueue().handle(), commandBuffer);
 
 	DEBUG_LOG << "Successfully created vertex buffer" << std::endl;
 }
@@ -340,34 +343,59 @@ void Renderer::createIndexBuffer(TerrainGenerator& generator) {
 	stagingBuffer.unmapMemory();
 
 	indexBuffer = Buffer::createIndex(device, bufferSize);
-	indexBuffer.copyBuffer(stagingBuffer, commandPool);
+	VkCommandBuffer commandBuffer = beginSingleCommand(device.handle(), commandPool);
+	indexBuffer.copyBuffer(stagingBuffer, commandBuffer);
+	endCommand(commandBuffer);
+	device.graphicsSubmitCommand(commandPool, commandBuffer);
 }
 
-void Renderer::createHeightImage(TerrainGenerator& generator) {
-	heightImageStager = Buffer::createStaging(device, sizeof(float) * generator.details.width * generator.details.height);
-	heightImage = Image::createStorage(device, generator.details.width, generator.details.height, VK_FORMAT_R32_SFLOAT, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT);
-	heightImageStagerMapped = heightImageStager.mapMemory<float>();
-	updateHeightImage(generator);
+void Renderer::createErosionImages(TerrainGenerator& generator) {
+	erosionImageStager = Buffer::createStaging(device, sizeof(float) * generator.details.width * generator.details.height);
+	erosionImages[0] = Image::createStorage(device, generator.details.width, generator.details.height, VK_FORMAT_R32_SFLOAT, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT);
+	erosionImages[1] = Image::createStorage(device, generator.details.width, generator.details.height, VK_FORMAT_R32_SFLOAT, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT);
+	erosionImageStagerMapped = erosionImageStager.mapMemory<float>();
 
-	DEBUG_LOG << "Successfully created height image" << std::endl;
+	updateCurrentErosionImage(generator);
 }
 
-void Renderer::updateHeightImage(TerrainGenerator& generator) {
+
+void Renderer::updateCurrentErosionImage(TerrainGenerator& generator) {
 	mapDetailsData.bufferSize = glm::ivec2(generator.details.width, generator.details.height);
 	mapDetailsData.displaySize = glm::vec2(4, 4);
 
 	uint32_t bufferLength = generator.details.width * generator.details.height;
 	uint32_t bufferSize = sizeof(float) * bufferLength;
 
-	if (bufferSize != heightImageStager.size()) {
-		heightImageStager = Buffer::createStaging(device, bufferSize);
-		heightImageStagerMapped = heightImageStager.mapMemory<float>();
+	if (bufferSize != erosionImageStager.size()) {
+		erosionImageStager = Buffer::createStaging(device, bufferSize);
+		erosionImageStagerMapped = erosionImageStager.mapMemory<float>();
 	}
 
-	generator.genTerrainInto(heightImageStagerMapped);
+	generator.genTerrainInto(erosionImageStagerMapped);
 
-	heightImage.copyBuffer(heightImageStager, commandPool);
+	VkCommandBuffer commandBuffer = beginSingleCommand(device.handle(), commandPool);
+	erosionImages[imageIndex].copyBuffer(erosionImageStager, commandBuffer);
+	renderHeightImage.copyImage(erosionImages[imageIndex], commandBuffer);
+	endCommand(commandBuffer);
+	device.graphicsSubmitCommand(commandPool, commandBuffer);
 }
+
+
+void Renderer::createHeightImage(TerrainGenerator& generator) {
+	renderHeightImage = Image::createStorage(device, generator.details.width, generator.details.height, VK_FORMAT_R32_SFLOAT, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT);
+
+	VkFenceCreateInfo fenceInfo{};
+	fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+	fenceInfo.flags = 0; // Start unsignalled
+	VkResult error_code = vkCreateFence(device.handle(), &fenceInfo, nullptr, &copyReadyFence);
+	handleVkResult(error_code, "Failed to create fence");
+	fenceInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
+	error_code = vkCreateFence(device.handle(), &fenceInfo, nullptr, &renderReadyFence);
+	handleVkResult(error_code, "Failed to create fence");
+
+	DEBUG_LOG << "Successfully created height image" << std::endl;
+}
+
 
 void Renderer::createHeightSampler() {
 	VkSamplerCreateInfo samplerInfo{};
@@ -393,7 +421,7 @@ void Renderer::createHeightSampler() {
 	samplerInfo.minLod = 0.0f;
 	samplerInfo.maxLod = 0.0f;
 
-	if (vkCreateSampler(device.handle(), &samplerInfo, nullptr, &heightSampler) != VK_SUCCESS) {
+	if (vkCreateSampler(device.handle(), &samplerInfo, nullptr, &renderHeightSampler) != VK_SUCCESS) {
 		throw std::runtime_error("failed to create texture sampler!");
 	}
 
@@ -522,8 +550,8 @@ void Renderer::createDescriptorSets() {
 		// Height sampler (binding 2)
 		VkDescriptorImageInfo heightInfo{};
 		heightInfo.imageLayout = VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL;
-		heightInfo.imageView = heightImage.view();
-		heightInfo.sampler = heightSampler;
+		heightInfo.imageView = renderHeightImage.view();
+		heightInfo.sampler = renderHeightSampler;
 
 		VkWriteDescriptorSet heightInfoWrite{};
 		heightInfoWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -552,8 +580,9 @@ uint32_t Renderer::findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags pro
 	throw std::runtime_error("failed to find suitable memory type!");
 }
 
+
 void Renderer::createCommandBuffers() {
-	commandBuffers.resize(swapchain.maxFramesInFlight());
+	/*commandBuffers.resize(swapchain.maxFramesInFlight());
 
 	VkCommandBufferAllocateInfo allocInfo{};
 	allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
@@ -563,18 +592,20 @@ void Renderer::createCommandBuffers() {
 
 	if (vkAllocateCommandBuffers(device.handle(), &allocInfo, commandBuffers.data()) != VK_SUCCESS) {
 		throw std::runtime_error("failed to allocate command buffers!");
-	}
+	}*/
+
+	commandBuffers = beginCommands(device.handle(), commandPool, swapchain.maxFramesInFlight());
 
 	DEBUG_LOG << "Successfully created command buffer" << std::endl;
 }
+
 
 void Renderer::recordCommandBuffer(VkCommandBuffer _commandBuffer, uint32_t imageIndex) {
 	VkCommandBufferBeginInfo beginInfo{};
 	beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 
-	if (vkBeginCommandBuffer(_commandBuffer, &beginInfo) != VK_SUCCESS) {
-		throw std::runtime_error("failed to begin recording command buffer!");
-	}
+	VkResult error_code = vkBeginCommandBuffer(_commandBuffer, &beginInfo);
+	handleVkResult(error_code, "Failed to begin recording command buffer");
 
 	VkRenderPassBeginInfo renderPassInfo{};
 	renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
@@ -619,13 +650,50 @@ void Renderer::recordCommandBuffer(VkCommandBuffer _commandBuffer, uint32_t imag
 	}
 	vkCmdEndRenderPass(_commandBuffer);
 
-	if (vkEndCommandBuffer(_commandBuffer) != VK_SUCCESS) {
-		throw std::runtime_error("failed to record command buffer!");
+	error_code = vkEndCommandBuffer(_commandBuffer);
+	handleVkResult(error_code, "Failed to record command buffer");
+}
+
+
+void Renderer::beginEroding() {
+	setupThread();
+}
+
+
+void Renderer::endEroding() {
+	joinThread();
+}
+
+
+void Renderer::erode(uint32_t steps) {
+	while (erosionRunning) {
+		
+	}
+}
+
+
+void Renderer::setupThread() {
+	if (erosionThread.joinable()) return;
+	erosionRunning = true;
+	erosionThread = std::thread(&Renderer::erode, this, 1000);
+}
+
+
+void Renderer::joinThread() {
+	if (erosionThread.joinable()) {
+		erosionRunning = false;
+		erosionThread.join();
+		std::cout << "Erosion thread stopped\n";
 	}
 }
 
 
 void Renderer::destroy() {
+	joinThread();
+
+	vkDestroyFence(device.handle(), copyReadyFence, nullptr);
+	vkDestroyFence(device.handle(), renderReadyFence, nullptr);
+
 	vkDestroyPipeline(device.handle(), graphicsPipeline, nullptr);
 	vkDestroyPipelineLayout(device.handle(), pipelineLayout, nullptr);
 
@@ -640,10 +708,13 @@ void Renderer::destroy() {
 
 	vkDestroyDescriptorSetLayout(device.handle(), descriptorSetLayout, nullptr);
 
-	vkDestroySampler(device.handle(), heightSampler, nullptr);
-	heightImage.destroy();
-	//heightImageStager.unmapMemory();
-	heightImageStager.destroy();
+	vkDestroySampler(device.handle(), renderHeightSampler, nullptr);
+	renderHeightImage.destroy();
+	erosionImageStager.destroy();
+	//gradientImage.destroy();
+	for (auto& img : erosionImages) {
+		img.destroy();
+	}
 
 	indexBuffer.destroy();
 	vertexBuffer.destroy();
@@ -727,7 +798,7 @@ void Renderer::drawFrame() {
 	presentInfo.waitSemaphoreCount = 1;
 	presentInfo.pWaitSemaphores = signalSemaphores;
 
-	VkSwapchainKHR swapchains[] = { swapchain.handle()};
+	VkSwapchainKHR swapchains[] = { swapchain.handle() };
 	presentInfo.swapchainCount = 1;
 	presentInfo.pSwapchains = swapchains;
 	presentInfo.pImageIndices = &imageIndex;
@@ -743,5 +814,5 @@ void Renderer::waitIdle() {
 }
 
 void Renderer::updateTerrain(TerrainGenerator& generator) {
-	updateHeightImage(generator);
+	updateCurrentErosionImage(generator);
 }

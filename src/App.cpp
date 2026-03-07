@@ -42,11 +42,13 @@ void Application::run() {
 	running = true;
 
 	uint32_t frames = 0;
+	renderer.beginEroding();
 	while (running) {
 		update();
 		renderer.drawFrame();
 		frames++;
 	}
+	renderer.endEroding();
 	std::cout << frames << std::endl;
 	renderer.waitIdle();
 }

@@ -155,6 +155,8 @@ class LogicalDevice {
 
 	Queue graphicsQueue_;
 	Queue presentQueue_;
+	std::mutex graphicsMutex_;
+	std::mutex presentMutex_;
 
 	void clearHandles() noexcept {
 		physicalDevice_ = nullptr;
@@ -193,8 +195,8 @@ public:
 	}
 	VkPhysicalDevice physicalDeviceHandle() const noexcept { return physicalDevice_->handle(); }
 	VkDevice handle() const noexcept { return handle_; }
-	const Queue& graphicsQueue() const noexcept { return graphicsQueue_; }
-	const Queue& presentQueue() const noexcept { return presentQueue_; }
+	uint32_t graphicsQueueIndex() const noexcept { return graphicsQueue_.familyIndex(); }
+	uint32_t presentQueueIndex() const noexcept { return presentQueue_.familyIndex(); }
 	bool isValid() const noexcept { return handle_ != VK_NULL_HANDLE; }
 
 	void destroy() {
@@ -205,11 +207,26 @@ public:
 	}
 
 	void waitIdle() const noexcept { vkDeviceWaitIdle(handle_); }
-	void submitGraphics(const std::vector<VkSubmitInfo>& infos, VkFence fence) const noexcept {
+	void submitGraphics(const std::vector<VkSubmitInfo>& infos, VkFence fence) noexcept {
+		std::lock_guard<std::mutex> lock(graphicsMutex_);
 		graphicsQueue_.submit(infos, fence);
 	}
-	void present(VkPresentInfoKHR* pPresentInfo) const { 
+	void present(VkPresentInfoKHR* pPresentInfo) { 
+		std::lock_guard<std::mutex> lock(presentMutex_);
 		VkResult error_code = vkQueuePresentKHR(presentQueue_.handle(), pPresentInfo);
 		handleVkResult(error_code, "Failed to call vkQueuePresentKHR");
+	}
+	void graphicsSubmitCommand(VkCommandPool commandPool, VkCommandBuffer commandBuffer) {
+		VkSubmitInfo submitInfo{};
+		submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+		submitInfo.commandBufferCount = 1;
+		submitInfo.pCommandBuffers = &commandBuffer;
+
+		std::unique_lock<std::mutex> lock(presentMutex_);
+		vkQueueSubmit(graphicsQueue_.handle(), 1, &submitInfo, VK_NULL_HANDLE);
+		vkQueueWaitIdle(graphicsQueue_.handle());
+		lock.unlock();
+
+		vkFreeCommandBuffers(handle_, commandPool, 1, &commandBuffer);
 	}
 };

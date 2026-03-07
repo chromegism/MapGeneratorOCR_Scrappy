@@ -12,11 +12,14 @@ concept NonPointer = !std::is_pointer_v<T>;
 
 std::vector<const char*> stringVectorToCStrVector(const std::vector<std::string>& strings);
 std::string vkResultToString(VkResult);
+std::string vkImageLayoutToString(VkImageLayout);
 void handleVkResult(VkResult error_code, std::string error_msg);
 
 uint32_t findMemoryType(VkPhysicalDevice _physicalDevice, uint32_t typeFilter, VkMemoryPropertyFlags properties);
 VkFormat findSupportedFormat(VkPhysicalDevice _physicalDevice, const std::vector<VkFormat>& candidates, VkImageTiling tiling, VkFormatFeatureFlags features);
-VkCommandBuffer beginCommand(VkDevice device, VkCommandPool commandPool);
+
+VkCommandBuffer beginSingleCommand(VkDevice device, VkCommandPool commandPool);
+std::vector<VkCommandBuffer> beginCommands(VkDevice device, VkCommandPool commandPool, uint32_t count);
 
 void endCommand(VkCommandBuffer);
 void submitSingleCommand(VkDevice device, VkCommandPool commandPool, VkQueue queue, VkCommandBuffer commandBuffer);

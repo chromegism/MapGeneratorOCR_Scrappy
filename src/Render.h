@@ -59,6 +59,8 @@ public:
 
 	~Renderer();
 
+	void beginEroding();
+	void endEroding();
 	void drawFrame();
 	void waitIdle();
 
@@ -93,10 +95,21 @@ private:
 	Buffer vertexBuffer;
 	Buffer indexBuffer;
 
-	Buffer heightImageStager;
-	float* heightImageStagerMapped;
-	Image heightImage;
-	VkSampler heightSampler;
+	Buffer erosionImageStager;
+	float* erosionImageStagerMapped;
+	std::array<Image, 2> erosionImages;
+	std::atomic<uint8_t> imageIndex;
+
+	VkFence copyReadyFence;
+	VkFence renderReadyFence;
+
+	Image renderHeightImage;
+	VkSampler renderHeightSampler;
+	//Image gradientImage;
+	//VkSampler gradientSampler;
+
+	std::thread erosionThread;
+	std::atomic<bool> erosionRunning = false;
 
 	MapDetailsObject mapDetailsData;
 
@@ -108,8 +121,9 @@ private:
 	void createCommandPool();
 	void createVertexBuffer(TerrainGenerator& generator);
 	void createIndexBuffer(TerrainGenerator& generator);
+	void createErosionImages(TerrainGenerator& generator);
 	void createHeightImage(TerrainGenerator& generator);
-	void updateHeightImage(TerrainGenerator& generator);
+	void updateCurrentErosionImage(TerrainGenerator& generator);
 	void createHeightSampler();
 	void createUniformBuffers();
 	void createDescriptorPool();
@@ -123,4 +137,8 @@ private:
 	void updateUniformBuffers(uint32_t currentImage);
 
 	uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties);
+
+	void erode(uint32_t);
+	void setupThread();
+	void joinThread();
 };

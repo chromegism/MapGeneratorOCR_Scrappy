@@ -70,6 +70,21 @@ std::string vkResultToString(VkResult error_code) {
 	}
 }
 
+std::string vkImageLayoutToString(VkImageLayout layout) {
+	switch (layout) {
+	case VK_IMAGE_LAYOUT_UNDEFINED: return "VK_IMAGE_LAYOUT_UNDEFINED";
+	case VK_IMAGE_LAYOUT_GENERAL: return "VK_IMAGE_LAYOUT_GENERAL";
+	case VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL: return "VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL";
+	case VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL: return "VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL";
+	case VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL: return "VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL";
+	case VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL: return "VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL";
+	case VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL: return "VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL";
+	case VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL: return "VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL";
+	case VK_IMAGE_LAYOUT_PREINITIALIZED: return "VK_IMAGE_LAYOUT_PREINITIALIZED";
+	default: return "UNKNOWN_VkImageLayout";
+	}
+}
+
 void handleVkResult(VkResult error_code, std::string error_msg) {
 	if (error_code != VK_SUCCESS && error_code != VK_SUBOPTIMAL_KHR) {
 		throw std::runtime_error(
@@ -107,7 +122,7 @@ VkFormat findSupportedFormat(VkPhysicalDevice _physicalDevice, const std::vector
 	throw std::runtime_error("failed to find supported format!");
 }
 
-VkCommandBuffer beginCommand(VkDevice device, VkCommandPool commandPool) {
+VkCommandBuffer beginSingleCommand(VkDevice device, VkCommandPool commandPool) {
 	VkCommandBufferAllocateInfo allocInfo{};
 	allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
 	allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
@@ -124,6 +139,15 @@ VkCommandBuffer beginCommand(VkDevice device, VkCommandPool commandPool) {
 	vkBeginCommandBuffer(commandBuffer, &beginInfo);
 
 	return commandBuffer;
+}
+
+std::vector<VkCommandBuffer> beginCommands(VkDevice device, VkCommandPool commandPool, uint32_t counts) {
+	std::vector<VkCommandBuffer> buffers;
+	buffers.reserve(counts);
+	for (uint32_t i = 0; i < counts; i++) {
+		buffers.emplace_back(beginSingleCommand(device, commandPool));
+	}
+	return buffers;
 }
 
 void endCommand(VkCommandBuffer commandBuffer) {

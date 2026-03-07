@@ -65,9 +65,9 @@ Swapchain::Swapchain(const SwapchainCreateInfos& info) : device_(&info.device) {
 	createInfo.imageArrayLayers = 1;
 	createInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
 
-	uint32_t queueFamilyIndices[] = { info.device.graphicsQueue().familyIndex(), info.device.presentQueue().familyIndex() };
+	uint32_t queueFamilyIndices[] = { info.device.graphicsQueueIndex(), info.device.presentQueueIndex() };
 
-	if (info.device.graphicsQueue().familyIndex() != info.device.presentQueue().familyIndex()) {
+	if (info.device.graphicsQueueIndex() != info.device.presentQueueIndex()) {
 		createInfo.imageSharingMode = VK_SHARING_MODE_CONCURRENT;
 		createInfo.queueFamilyIndexCount = 2;
 		createInfo.pQueueFamilyIndices = queueFamilyIndices;

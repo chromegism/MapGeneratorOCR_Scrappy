@@ -27,16 +27,12 @@ void Buffer::genBuffer(VkDeviceSize size) {
 	vkBindBufferMemory(device_->handle(), handle_, memory_, 0);
 }
 
-void Buffer::copyBuffer(const Buffer& other, VkCommandPool commandPool) {
+void Buffer::copyBuffer(const Buffer& other, VkCommandBuffer commandBuffer) {
 	// Check for copy validity
 	assert(usageFlags_ & VK_BUFFER_USAGE_TRANSFER_DST_BIT);
 	assert(other.usageFlags_ & VK_BUFFER_USAGE_TRANSFER_SRC_BIT);
 
-	VkCommandBuffer commandBuffer = beginCommand(device_->handle(), commandPool);
-
 	VkBufferCopy copyRegion{};
 	copyRegion.size = size_;
 	vkCmdCopyBuffer(commandBuffer, other.handle_, handle_, 1, &copyRegion);
-
-	endAndSubmitCommand(device_->handle(), commandPool, device_->graphicsQueue().handle(), commandBuffer);
 }

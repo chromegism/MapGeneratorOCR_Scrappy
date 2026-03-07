@@ -37,7 +37,7 @@ class Swapchain {
 
 		renderPass_ = std::exchange(other.renderPass_, VK_NULL_HANDLE);
 		images_ = std::move(other.images_);
-		depthImage_ = std::exchange(other.depthImage_, {});
+		depthImage_ = std::move(other.depthImage_);
 		framebuffers_ = std::move(other.framebuffers_);
 
 		surfaceFormat_ = other.surfaceFormat_;
@@ -71,6 +71,7 @@ class Swapchain {
 		inFlightFences_.clear();
 
 		maxFramesInFlight_ = 0;
+		currentFrame_ = 0;
 	}
 
 	struct SwapchainCreateInfos {
@@ -151,10 +152,13 @@ public:
 	bool isValid() const noexcept { return handle_ != VK_NULL_HANDLE; }
 	void destroy() noexcept {
 		if (isValid()) {
+			// Don't crash please
+			vkDeviceWaitIdle(deviceHandle());
+
 			for (size_t i = 0; i < inFlightFences_.size(); i++) {
-				vkDestroySemaphore(device_->handle(), renderFinishedSemaphores_.at(i), nullptr);
-				vkDestroySemaphore(device_->handle(), imageAvailableSemaphores_.at(i), nullptr);
-				vkDestroyFence(device_->handle(), inFlightFences_.at(i), nullptr);
+				vkDestroySemaphore(device_->handle(), renderFinishedSemaphores_[i], nullptr);
+				vkDestroySemaphore(device_->handle(), imageAvailableSemaphores_[i], nullptr);
+				vkDestroyFence(device_->handle(), inFlightFences_[i], nullptr);
 			}
 
 			images_.clear();

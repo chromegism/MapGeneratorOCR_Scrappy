@@ -105,6 +105,7 @@ public:
 	VkDeviceMemory memory() const noexcept { return memory_; }
 	VkImageView view() const noexcept { return view_; }
 	VkFormat format() const noexcept { return format_; }
+	VkImageLayout layout() const noexcept { return layout_; }
 	bool isValid() const noexcept { return handle_ != VK_NULL_HANDLE; }
 
 	void destroy() noexcept {
@@ -116,9 +117,9 @@ public:
 		clearHandles();
 	}
 
-	void copyBuffer(const Buffer& other, VkCommandPool commandPool);
-	void transitionLayout(VkImageLayout oldLayout, VkImageLayout newLayout, VkCommandPool commandPool, VkCommandBuffer commandBuffer, bool leaveOpen = false);
-	VkCommandBuffer transitionLayout(VkImageLayout oldLayout, VkImageLayout newLayout, VkCommandPool commandPool, bool leaveOpen = false);
+	void copyBuffer(const Buffer& other, VkCommandBuffer commandBuffer);
+	void copyImage(Image& other, VkCommandBuffer commandBuffer);
+	void transitionLayout(VkImageLayout oldLayout, VkImageLayout newLayout, VkCommandBuffer commandBuffer, bool leaveOpen = false);
 
 	static VkFormat findDepthFormat(VkPhysicalDevice _physicalDevice) {
 		return findSupportedFormat(_physicalDevice,
@@ -146,10 +147,10 @@ private:
 
 	void genImageView(VkFormat);
 
-	explicit SwapchainImage(VkDevice _deviceHandle, VkImage _handle, VkImageView _view) :
+	SwapchainImage(VkDevice _deviceHandle, VkImage _handle, VkImageView _view) :
 		deviceHandle_(_deviceHandle), handle_(_handle), view_(_view) {
 	}
-	explicit SwapchainImage(VkDevice _deviceHandle, VkImage _handle, VkFormat _format) :
+	SwapchainImage(VkDevice _deviceHandle, VkImage _handle, VkFormat _format) :
 		deviceHandle_(_deviceHandle), handle_(_handle) {
 		genImageView(_format);
 	}
