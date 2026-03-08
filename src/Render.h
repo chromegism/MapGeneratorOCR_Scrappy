@@ -74,6 +74,8 @@ private:
 		VK_KHR_SWAPCHAIN_EXTENSION_NAME,
 	};
 
+	bool isFirstFrame = false;
+
 	Instance instance;
 	Surface surface;
 	PhysicalDevice physicalDevice;
@@ -100,8 +102,8 @@ private:
 	std::array<Image, 2> erosionImages;
 	std::atomic<uint8_t> imageIndex;
 
-	VkFence copyReadyFence;
-	VkFence renderReadyFence;
+	VkSemaphore copyCompleteSemaphore;
+	VkSemaphore renderCompleteSemaphore;
 
 	Image renderHeightImage;
 	VkSampler renderHeightSampler;
@@ -112,6 +114,11 @@ private:
 	std::thread erosionThread;
 	std::atomic<bool> erosionRunning = false;
 
+	VkPipelineLayout erosionPipelineLayout;
+	VkPipeline erosionPipeline;
+	VkDescriptorSetLayout erosionDescriptorSetLayout;
+	std::array<VkDescriptorSet, 2> erosionDescriptorSets;
+
 	MapDetailsObject mapDetailsData;
 
 	void createInstance();
@@ -119,6 +126,8 @@ private:
 	VkShaderModule createShaderModule(const std::vector<char>& code);
 	void createDescriptorSetLayout();
 	void createGraphicsPipeline();
+	void createErosionDescriptorSetLayout();
+	void createErosionPipeline();
 	void createCommandPool();
 	void createVertexBuffer(TerrainGenerator& generator);
 	void createIndexBuffer(TerrainGenerator& generator);
@@ -129,6 +138,7 @@ private:
 	void createUniformBuffers();
 	void createDescriptorPool();
 	void createDescriptorSets();
+	void createErosionDescriptorSets();
 	void createCommandBuffers();
 
 	void createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory);

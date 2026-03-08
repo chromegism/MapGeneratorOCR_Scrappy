@@ -148,7 +148,7 @@ public:
 		VkResult error_code = vkQueueSubmit(handle_, infoCount, infos, fence);
 		handleVkResult(error_code, "Failed to call vkQueueSubmit");
 	}
-	void submit(VkCommandPool commandPool, VkCommandBuffer commandBuffer) const {
+	void submitCommand(VkCommandPool commandPool, VkCommandBuffer commandBuffer) const {
 		VkSubmitInfo submitInfo{};
 		submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 		submitInfo.commandBufferCount = 1;
@@ -234,10 +234,10 @@ public:
 	}
 	void graphicsSubmitCommand(VkCommandPool commandPool, VkCommandBuffer commandBuffer) {
 		std::lock_guard<std::mutex> lock(graphicsMutex_);
-		graphicsQueue_.submit(commandPool, commandBuffer);
+		graphicsQueue_.submitCommand(commandPool, commandBuffer);
 	}
 	void computeSubmitCommand(VkCommandPool commandPool, VkCommandBuffer commandBuffer) {
 		std::lock_guard<std::mutex> lock(computeMutex_);
-		computeQueue_.submit(commandPool, commandBuffer);
+		computeQueue_.submitCommand(commandPool, commandBuffer);
 	}
 };

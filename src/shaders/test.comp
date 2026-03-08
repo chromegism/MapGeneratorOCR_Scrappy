@@ -1,0 +1,21 @@
+#version 450
+
+layout(set = 0, binding = 0, r32f) uniform readonly image2D inputHeight; 
+layout(set = 0, binding = 1, r32f) uniform writeonly image2D outputHeight;
+
+void main() {
+    ivec2 texelCoord = ivec2(gl_GlobalInvocationID.xy);
+    
+    ivec2 size = imageSize(inputHeight);
+    if (texelCoord.x >= size.x || texelCoord.y >= size.y) {
+        return;
+    }
+
+    // Read the current height
+    float h = imageLoad(inputHeight, texelCoord).r;
+    
+    // just copying for now
+    
+    // Write the new height
+    imageStore(outputHeight, texelCoord, vec4(h, 0, 0, 0));
+}

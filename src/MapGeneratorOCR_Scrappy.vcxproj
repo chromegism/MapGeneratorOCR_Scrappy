@@ -178,6 +178,7 @@ copy /Y "$(ProjectDir)shaders\" "$(TargetDir)shaders\"</Command>
     <ClInclude Include="Window.h" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="shaders\test.comp" />
     <None Include="shaders\test.frag" />
     <None Include="shaders\test.tess" />
     <None Include="shaders\test.vert" />

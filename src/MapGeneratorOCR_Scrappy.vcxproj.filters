@@ -142,5 +142,8 @@
     <None Include="shaders\test.tess">
       <Filter>Resource Files\Shaders</Filter>
     </None>
+    <None Include="shaders\test.comp">
+      <Filter>Resource Files\Shaders</Filter>
+    </None>
   </ItemGroup>
 </Project>

@@ -39,6 +39,8 @@ void Renderer::init(SDL_Window* window, TerrainGenerator& generator) {
 	);
 	createDescriptorSetLayout();
 	createGraphicsPipeline();
+	createErosionDescriptorSetLayout();
+	createErosionPipeline();
 	createCommandPool();
 	createVertexBuffer(generator);
 	createIndexBuffer(generator);
@@ -48,7 +50,9 @@ void Renderer::init(SDL_Window* window, TerrainGenerator& generator) {
 	createUniformBuffers();
 	createDescriptorPool();
 	createDescriptorSets();
+	createErosionDescriptorSets();
 	createCommandBuffers();
+	isFirstFrame = true;
 }
 
 void Renderer::createInstance() {
@@ -295,6 +299,64 @@ void Renderer::createGraphicsPipeline() {
 }
 
 
+void Renderer::createErosionDescriptorSetLayout() {
+	VkDescriptorSetLayoutBinding inputBinding{};
+	inputBinding.binding = 0;
+	inputBinding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+	inputBinding.descriptorCount = 1;
+	inputBinding.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+	inputBinding.pImmutableSamplers = nullptr;
+
+	VkDescriptorSetLayoutBinding outputBinding{};
+	outputBinding.binding = 1;
+	outputBinding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+	outputBinding.descriptorCount = 1;
+	outputBinding.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+	outputBinding.pImmutableSamplers = nullptr;
+
+	VkDescriptorSetLayoutCreateInfo createInfo{};
+	createInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+	std::array<VkDescriptorSetLayoutBinding, 2> bindings = { inputBinding, outputBinding };
+	createInfo.pBindings = bindings.data();
+	createInfo.bindingCount = static_cast<uint32_t>(bindings.size());
+	
+	VkResult error_code = vkCreateDescriptorSetLayout(device.handle(), &createInfo, nullptr, &erosionDescriptorSetLayout);
+}
+
+
+void Renderer::createErosionPipeline() {
+	auto compShaderCode = readFileCharVector("shaders/test.comp.spv");
+	VkShaderModule compShaderModule = createShaderModule(compShaderCode);
+
+	VkPipelineShaderStageCreateInfo compStageInfo{};
+	compStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+	compStageInfo.stage = VK_SHADER_STAGE_COMPUTE_BIT;
+	compStageInfo.module = compShaderModule;
+	compStageInfo.pName = "main";
+
+	VkPipelineLayoutCreateInfo layoutInfo{};
+	layoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+	layoutInfo.setLayoutCount = 1;
+	layoutInfo.pSetLayouts = &erosionDescriptorSetLayout;
+	layoutInfo.pushConstantRangeCount = 0;
+
+	VkResult error_code = vkCreatePipelineLayout(device.handle(), &layoutInfo, nullptr, &erosionPipelineLayout);
+	handleVkResult(error_code, "Failed to create erosion pipeline layout");
+
+	VkComputePipelineCreateInfo pipelineInfo{};
+	pipelineInfo.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
+	pipelineInfo.layout = erosionPipelineLayout;
+	pipelineInfo.stage = compStageInfo;
+	pipelineInfo.basePipelineHandle = VK_NULL_HANDLE;
+	pipelineInfo.basePipelineIndex = -1;
+
+	error_code = vkCreateComputePipelines(device.handle(), VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &erosionPipeline);
+	handleVkResult(error_code, "Failed to create erosion compute pipeline");
+
+	vkDestroyShaderModule(device.handle(), compShaderModule, nullptr);
+}
+
+
 void Renderer::createCommandPool() {
 	PhysicalDevice::QueueFamilyIndices queueFamilyIndices = physicalDevice.queueFamilyIndices();
 
@@ -384,13 +446,11 @@ void Renderer::updateCurrentErosionImage(TerrainGenerator& generator) {
 void Renderer::createHeightImage(TerrainGenerator& generator) {
 	renderHeightImage = Image::createStorage(device, generator.details.width, generator.details.height, VK_FORMAT_R32_SFLOAT, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT);
 
-	VkFenceCreateInfo fenceInfo{};
-	fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
-	fenceInfo.flags = 0; // Start unsignalled
-	VkResult error_code = vkCreateFence(device.handle(), &fenceInfo, nullptr, &copyReadyFence);
+	VkSemaphoreCreateInfo semaphoreInfo{};
+	semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+	VkResult error_code = vkCreateSemaphore(device.handle(), &semaphoreInfo, nullptr, &copyCompleteSemaphore);
 	handleVkResult(error_code, "Failed to create fence");
-	fenceInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
-	error_code = vkCreateFence(device.handle(), &fenceInfo, nullptr, &renderReadyFence);
+	error_code = vkCreateSemaphore(device.handle(), &semaphoreInfo, nullptr, &renderCompleteSemaphore);
 	handleVkResult(error_code, "Failed to create fence");
 
 	DEBUG_LOG << "Successfully created height image" << std::endl;
@@ -660,7 +720,7 @@ void Renderer::endEroding() {
 
 void Renderer::erode() {
 	while (erosionRunning) {
-		
+		//vkWaitForFences(device.handle(), 1, &renderCompleteFence, true, UINT64_MAX);
 	}
 }
 
@@ -684,8 +744,8 @@ void Renderer::joinThread() {
 void Renderer::destroy() {
 	joinThread();
 
-	vkDestroyFence(device.handle(), copyReadyFence, nullptr);
-	vkDestroyFence(device.handle(), renderReadyFence, nullptr);
+	vkDestroySemaphore(device.handle(), copyCompleteSemaphore, nullptr);
+	vkDestroySemaphore(device.handle(), renderCompleteSemaphore, nullptr);
 
 	vkDestroyPipeline(device.handle(), graphicsPipeline, nullptr);
 	vkDestroyPipelineLayout(device.handle(), pipelineLayout, nullptr);
@@ -759,19 +819,34 @@ void Renderer::drawFrame() {
 	VkSubmitInfo submitInfo{};
 	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 
-	VkSemaphore waitSemaphores[] = { swapchain.currentImageAvailableSemaphore() };
-	VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
-	submitInfo.waitSemaphoreCount = 1;
-	submitInfo.pWaitSemaphores = waitSemaphores;
-	submitInfo.pWaitDstStageMask = waitStages;
+	VkSemaphore waitSemaphores[2];
+	VkPipelineStageFlags waitStages[2];
+	if (isFirstFrame) {
+		waitSemaphores[0] = swapchain.currentImageAvailableSemaphore();
+		waitStages[0] = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+		submitInfo.waitSemaphoreCount = 1;
+		submitInfo.pWaitSemaphores = waitSemaphores;
+		submitInfo.pWaitDstStageMask = waitStages;
+		isFirstFrame = false;
+	}
+	else {
+		waitSemaphores[0] = swapchain.currentImageAvailableSemaphore();
+		waitSemaphores[1] = copyCompleteSemaphore;
+		waitStages[0] = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+		waitStages[1] = VK_PIPELINE_STAGE_VERTEX_SHADER_BIT;
+		submitInfo.waitSemaphoreCount = 2;
+		submitInfo.pWaitSemaphores = waitSemaphores;
+		submitInfo.pWaitDstStageMask = waitStages;
+	}
 
 	submitInfo.commandBufferCount = 1;
 	submitInfo.pCommandBuffers = &commandBuffers[swapchain.currentFrameIndex()];
 
-	VkSemaphore signalSemaphores[] = { swapchain.currentRenderFinishedSemaphore() };
-	submitInfo.signalSemaphoreCount = 1;
+	VkSemaphore signalSemaphores[] = { swapchain.currentRenderFinishedSemaphore(), renderCompleteSemaphore };
+	submitInfo.signalSemaphoreCount = 2;
 	submitInfo.pSignalSemaphores = signalSemaphores;
 
+	//vkWaitForFences(device.handle(), 1, &copyCompleteFence, true, UINT64_MAX);
 	device.submitGraphics({ submitInfo }, swapchain.currentFence());
 
 	VkSubpassDependency dependency{};
