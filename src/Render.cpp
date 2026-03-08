@@ -936,7 +936,7 @@ void Renderer::runErosionPipeline(uint32_t index) {
 void Renderer::erode() {
 	uint32_t index = 0;
 	while (erosionRunning) {
-		runErosionPipeline(index);
+		//runErosionPipeline(index);
 		index = (index + 1) & 2;
 	}
 }
@@ -968,6 +968,9 @@ void Renderer::destroy() {
 
 	vkDestroyPipeline(device.handle(), graphicsPipeline, nullptr);
 	vkDestroyPipelineLayout(device.handle(), pipelineLayout, nullptr);
+
+	vkDestroyPipeline(device.handle(), erosionPipeline, nullptr);
+	vkDestroyPipelineLayout(device.handle(), erosionPipelineLayout, nullptr);
 
 	swapchain.destroy();
 
@@ -1042,14 +1045,14 @@ void Renderer::drawFrame() {
 
 	VkSemaphore waitSemaphores[2];
 	VkPipelineStageFlags waitStages[2];
-	if (isFirstFrame) {
+	//if (isFirstFrame) {
 		waitSemaphores[0] = swapchain.currentImageAvailableSemaphore();
 		waitStages[0] = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
 		submitInfo.waitSemaphoreCount = 1;
 		submitInfo.pWaitSemaphores = waitSemaphores;
 		submitInfo.pWaitDstStageMask = waitStages;
 		isFirstFrame = false;
-	}
+	/*}
 	else {
 		waitSemaphores[0] = swapchain.currentImageAvailableSemaphore();
 		waitSemaphores[1] = copyCompleteSemaphore;
@@ -1058,13 +1061,15 @@ void Renderer::drawFrame() {
 		submitInfo.waitSemaphoreCount = 2;
 		submitInfo.pWaitSemaphores = waitSemaphores;
 		submitInfo.pWaitDstStageMask = waitStages;
-	}
+	}*/
 
 	submitInfo.commandBufferCount = 1;
 	submitInfo.pCommandBuffers = &commandBuffers[swapchain.currentFrameIndex()];
 
-	VkSemaphore signalSemaphores[] = { swapchain.currentRenderFinishedSemaphore(), renderCompleteSemaphore };
-	submitInfo.signalSemaphoreCount = 2;
+	/*VkSemaphore signalSemaphores[] = {swapchain.currentRenderFinishedSemaphore(), renderCompleteSemaphore};
+	submitInfo.signalSemaphoreCount = 2;*/
+	VkSemaphore signalSemaphores[] = { swapchain.currentRenderFinishedSemaphore() };
+	submitInfo.signalSemaphoreCount = 1;
 	submitInfo.pSignalSemaphores = signalSemaphores;
 
 	device.submitGraphics({ submitInfo }, swapchain.currentFence());
