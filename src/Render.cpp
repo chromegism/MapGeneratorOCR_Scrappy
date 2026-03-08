@@ -796,13 +796,24 @@ void Renderer::createErosionFence() {
 }
 
 
-void Renderer::beginEroding() {
-	setupThread();
+void Renderer::primeSemaphores() {
+	VkSubmitInfo submitInfo{};
+	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+
+	submitInfo.signalSemaphoreCount = 1;
+	submitInfo.pSignalSemaphores = &renderCompleteSemaphore;
+
+	device.submitCompute({ submitInfo }, VK_NULL_HANDLE);
+
+	device.computeWaitIdle();
 }
 
 
-void Renderer::endEroding() {
-	joinThread();
+void Renderer::init() {
+
+	primeSemaphores();
+
+	setupThread();
 }
 
 
@@ -846,7 +857,7 @@ void Renderer::runErosionPipeline(uint32_t index) {
 	{
 		VkImageMemoryBarrier barrier{};
 		barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-		barrier.oldLayout = VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL;
+		barrier.oldLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 		barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
 		barrier.srcAccessMask = VK_ACCESS_SHADER_READ_BIT;       
 		barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;     
@@ -880,15 +891,15 @@ void Renderer::runErosionPipeline(uint32_t index) {
 		barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
 		barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
 		barrier.newLayout = VK_IMAGE_LAYOUT_GENERAL;
-		barrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;       // Compute write must finish
-		barrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;     // Copy read can then begin
+		barrier.srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+		barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
 		barrier.image = erosionImages[nextIndex].handle();
 		barrier.subresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
 
 		vkCmdPipelineBarrier(
 			erosionCommandBuffers[index],
-			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, // Source: Compute stage
-			VK_PIPELINE_STAGE_TRANSFER_BIT,       // Destination: Copy stage
+			VK_PIPELINE_STAGE_TRANSFER_BIT,
+			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
 			0, 0, nullptr, 0, nullptr, 1, &barrier
 		);
 	}
@@ -897,8 +908,8 @@ void Renderer::runErosionPipeline(uint32_t index) {
 		VkImageMemoryBarrier barrier{};
 		barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
 		barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-		barrier.newLayout = VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL;
-		barrier.srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;      
+		barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+		barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;      
 		barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;    
 		barrier.image = renderHeightImage.handle();
 		barrier.subresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
@@ -929,6 +940,7 @@ void Renderer::runErosionPipeline(uint32_t index) {
 	submitInfo.signalSemaphoreCount = 1;
 	submitInfo.pSignalSemaphores = &copyCompleteSemaphore;
 
+	printf("Waiting on renderCompleteSemaphore\n");
 	device.submitCompute({ submitInfo }, erosionFence);
 }
 
@@ -936,8 +948,9 @@ void Renderer::runErosionPipeline(uint32_t index) {
 void Renderer::erode() {
 	uint32_t index = 0;
 	while (erosionRunning) {
-		//runErosionPipeline(index);
+		runErosionPipeline(index);
 		index = (index + 1) & 2;
+		printf("%i", index);
 	}
 }
 
@@ -1032,6 +1045,8 @@ void Renderer::updateUniformBuffers(uint32_t currentImage) {
 }
 
 void Renderer::drawFrame() {
+	printf("drawing frame, waiting for fence %i\n", swapchain.currentFrameIndex());
+	
 	swapchain.waitForFence();
 	
 	uint32_t imageIndex = swapchain.nextImage();
@@ -1045,14 +1060,14 @@ void Renderer::drawFrame() {
 
 	VkSemaphore waitSemaphores[2];
 	VkPipelineStageFlags waitStages[2];
-	//if (isFirstFrame) {
+	if (isFirstFrame) {
 		waitSemaphores[0] = swapchain.currentImageAvailableSemaphore();
 		waitStages[0] = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
 		submitInfo.waitSemaphoreCount = 1;
 		submitInfo.pWaitSemaphores = waitSemaphores;
 		submitInfo.pWaitDstStageMask = waitStages;
 		isFirstFrame = false;
-	/*}
+	}
 	else {
 		waitSemaphores[0] = swapchain.currentImageAvailableSemaphore();
 		waitSemaphores[1] = copyCompleteSemaphore;
@@ -1061,7 +1076,8 @@ void Renderer::drawFrame() {
 		submitInfo.waitSemaphoreCount = 2;
 		submitInfo.pWaitSemaphores = waitSemaphores;
 		submitInfo.pWaitDstStageMask = waitStages;
-	}*/
+		printf("Waiting on copyFinishedSemaphore\n");
+	}
 
 	submitInfo.commandBufferCount = 1;
 	submitInfo.pCommandBuffers = &commandBuffers[swapchain.currentFrameIndex()];

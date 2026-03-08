@@ -59,8 +59,7 @@ public:
 
 	~Renderer();
 
-	void beginEroding();
-	void endEroding();
+	void init();
 	// Must go at the end of the frame's gpu operations
 	void drawFrame();
 	void waitIdle();
@@ -157,4 +156,6 @@ private:
 	void erode();
 	void setupThread();
 	void joinThread();
+
+	void primeSemaphores();
 };

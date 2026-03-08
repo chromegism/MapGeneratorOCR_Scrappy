@@ -159,6 +159,7 @@ public:
 
 		vkFreeCommandBuffers(deviceHandle_, commandPool, 1, &commandBuffer);
 	}
+	void waitIdle() const noexcept { vkQueueWaitIdle(handle_); }
 };
 
 class LogicalDevice {
@@ -244,4 +245,7 @@ public:
 		std::lock_guard<std::mutex> lock(computeMutex_);
 		computeQueue_.submitCommand(commandPool, commandBuffer);
 	}
+	void graphicsWaitIdle() const noexcept { graphicsQueue_.waitIdle(); }
+	void presentWaitIdle() const noexcept { presentQueue_.waitIdle(); }
+	void computeWaitIdle() const noexcept { computeQueue_.waitIdle(); }
 };
