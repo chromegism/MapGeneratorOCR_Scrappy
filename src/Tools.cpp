@@ -122,6 +122,19 @@ VkFormat findSupportedFormat(VkPhysicalDevice _physicalDevice, const std::vector
 	throw std::runtime_error("failed to find supported format!");
 }
 
+VkCommandBuffer createSingleCommand(VkDevice device, VkCommandPool commandPool) {
+	VkCommandBufferAllocateInfo allocInfo{};
+	allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+	allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+	allocInfo.commandPool = commandPool;
+	allocInfo.commandBufferCount = 1;
+
+	VkCommandBuffer commandBuffer;
+	vkAllocateCommandBuffers(device, &allocInfo, &commandBuffer);
+
+	return commandBuffer;
+}
+
 VkCommandBuffer beginSingleCommand(VkDevice device, VkCommandPool commandPool) {
 	VkCommandBufferAllocateInfo allocInfo{};
 	allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;

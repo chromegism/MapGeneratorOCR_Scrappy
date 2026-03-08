@@ -92,37 +92,34 @@ void Image::copyBuffer(const Buffer& other, VkCommandBuffer commandBuffer) {
 }
 
 void Image::copyImage(Image& other, VkCommandBuffer commandBuffer) {
-	transitionLayout(VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, commandBuffer, true);
+	VkImageLayout dstCopyLayout = layout_;
+	if (dstCopyLayout != VK_IMAGE_LAYOUT_GENERAL) {
+		dstCopyLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+		transitionLayout(layout_, dstCopyLayout, commandBuffer, true);
+	}
+
 	VkImageLayout srcOriginalLayout = other.layout();
-	if (srcOriginalLayout != VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL) {
-		other.transitionLayout(srcOriginalLayout, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, commandBuffer, true);
+	VkImageLayout srcCopyLayout = srcOriginalLayout;
+
+	if (srcOriginalLayout != VK_IMAGE_LAYOUT_GENERAL && srcOriginalLayout != VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL) {
+		srcCopyLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+		other.transitionLayout(srcOriginalLayout, srcCopyLayout, commandBuffer, true);
 	}
 
 	VkImageCopy copyRegion{};
-	copyRegion.srcOffset = { 0, 0, 0 };
-	copyRegion.dstOffset = { 0, 0, 0 };
 	copyRegion.extent = { extent_.width, extent_.height, 1 };
+	copyRegion.srcSubresource = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1 };
+	copyRegion.dstSubresource = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1 };
 
-	copyRegion.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-	copyRegion.srcSubresource.layerCount = 1;
-	copyRegion.srcSubresource.mipLevel = 0;
-	copyRegion.srcSubresource.baseArrayLayer = 0;
+	vkCmdCopyImage(commandBuffer, other.handle(), srcCopyLayout, handle_, dstCopyLayout, 1, &copyRegion);
 
-	copyRegion.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-	copyRegion.dstSubresource.layerCount = 1;
-	copyRegion.dstSubresource.mipLevel = 0;
-	copyRegion.dstSubresource.baseArrayLayer = 0;
-
-
-	vkCmdCopyImage(commandBuffer, other.handle(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, handle_, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copyRegion);
-
-	transitionLayout(layout_, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, commandBuffer, true);
-	srcOriginalLayout = other.layout();
-	if (srcOriginalLayout != VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL) {
-		other.transitionLayout(VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, srcOriginalLayout, commandBuffer, true);
+	if (dstCopyLayout != VK_IMAGE_LAYOUT_GENERAL) {
+		transitionLayout(dstCopyLayout, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, commandBuffer, true);
 	}
-	
-	//submitSingleCommand(deviceHandle(), commandPool, device().graphicsQueue().handle(), commandBuffer);
+
+	if (srcCopyLayout != srcOriginalLayout) {
+		other.transitionLayout(srcCopyLayout, srcOriginalLayout, commandBuffer, true);
+	}
 }
 
 void Image::transitionLayout(VkImageLayout oldLayout, VkImageLayout newLayout, VkCommandBuffer commandBuffer, bool leaveOpen) {
@@ -145,7 +142,7 @@ void Image::transitionLayout(VkImageLayout oldLayout, VkImageLayout newLayout, V
 	//std::cout << "oldLayout: " << vkImageLayoutToString(oldLayout) << " - newLayout: " << vkImageLayoutToString(newLayout) << '\n';
 
 	// Setting info for old layout
-	if (oldLayout == VK_IMAGE_LAYOUT_UNDEFINED) {
+	if (oldLayout == VK_IMAGE_LAYOUT_UNDEFINED || oldLayout == VK_IMAGE_LAYOUT_GENERAL) {
 		barrier.srcAccessMask = 0;
 		sourceStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
 	}
@@ -182,6 +179,10 @@ void Image::transitionLayout(VkImageLayout oldLayout, VkImageLayout newLayout, V
 		destinationStage = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
 
 		barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+	}
+	else if (newLayout == VK_IMAGE_LAYOUT_GENERAL) {
+		barrier.dstAccessMask = 0;
+		destinationStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
 	}
 	else {
 		throw std::invalid_argument(

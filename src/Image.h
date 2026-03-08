@@ -106,6 +106,7 @@ public:
 	VkImageView view() const noexcept { return view_; }
 	VkFormat format() const noexcept { return format_; }
 	VkImageLayout layout() const noexcept { return layout_; }
+	VkExtent2D extent() const noexcept { return extent_; }
 	bool isValid() const noexcept { return handle_ != VK_NULL_HANDLE; }
 
 	void destroy() noexcept {

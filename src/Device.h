@@ -227,6 +227,10 @@ public:
 		std::lock_guard<std::mutex> lock(graphicsMutex_);
 		graphicsQueue_.submit(infos, fence);
 	}
+	void submitCompute(const std::vector<VkSubmitInfo>& infos, VkFence fence) noexcept {
+		std::lock_guard<std::mutex> lock(computeMutex_);
+		computeQueue_.submit(infos, fence);
+	}
 	void present(VkPresentInfoKHR* pPresentInfo) {
 		std::lock_guard<std::mutex> lock(presentMutex_);
 		VkResult error_code = vkQueuePresentKHR(presentQueue_.handle(), pPresentInfo);

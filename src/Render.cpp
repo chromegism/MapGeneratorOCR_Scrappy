@@ -52,6 +52,7 @@ void Renderer::init(SDL_Window* window, TerrainGenerator& generator) {
 	createDescriptorSets();
 	createErosionDescriptorSets();
 	createCommandBuffers();
+	createErosionFence();
 	isFirstFrame = true;
 }
 
@@ -360,14 +361,21 @@ void Renderer::createErosionPipeline() {
 void Renderer::createCommandPool() {
 	PhysicalDevice::QueueFamilyIndices queueFamilyIndices = physicalDevice.queueFamilyIndices();
 
-	VkCommandPoolCreateInfo poolInfo{};
-	poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
-	poolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
-	poolInfo.queueFamilyIndex = queueFamilyIndices.graphicsFamily.value();
+	VkCommandPoolCreateInfo pool1Info{};
+	pool1Info.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+	pool1Info.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
+	pool1Info.queueFamilyIndex = queueFamilyIndices.graphicsFamily.value();
 
-	if (vkCreateCommandPool(device.handle(), &poolInfo, nullptr, &commandPool) != VK_SUCCESS) {
-		throw std::runtime_error("failed to create command pool!");
-	}
+	VkResult error_code = vkCreateCommandPool(device.handle(), &pool1Info, nullptr, &commandPool);
+	handleVkResult(error_code, "Failed to create command pool");
+
+	VkCommandPoolCreateInfo pool2Info{};
+	pool2Info.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+	pool2Info.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
+	pool2Info.queueFamilyIndex = queueFamilyIndices.computeFamily.value();
+
+	error_code = vkCreateCommandPool(device.handle(), &pool2Info, nullptr, &erosionCommandPool);
+	handleVkResult(error_code, "Failed to create command pool");
 
 	DEBUG_LOG << "Successfully created command pool" << std::endl;
 }
@@ -415,6 +423,14 @@ void Renderer::createErosionImages(TerrainGenerator& generator) {
 	erosionImageStager = Buffer::createStaging(device, sizeof(float) * generator.details.width * generator.details.height);
 	erosionImages[0] = Image::createStorage(device, generator.details.width, generator.details.height, VK_FORMAT_R32_SFLOAT, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT);
 	erosionImages[1] = Image::createStorage(device, generator.details.width, generator.details.height, VK_FORMAT_R32_SFLOAT, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT);
+
+	VkCommandBuffer commandBuffer = beginSingleCommand(device.handle(), commandPool);
+
+	erosionImages[0].transitionLayout(VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, commandBuffer, true);
+	erosionImages[1].transitionLayout(VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, commandBuffer, false);
+
+	device.computeSubmitCommand(commandPool, commandBuffer);
+
 	erosionImageStagerMapped = erosionImageStager.mapMemory<float>();
 
 	updateCurrentErosionImage(generator);
@@ -539,21 +555,26 @@ void Renderer::createUniformBuffers() {
 }
 
 void Renderer::createDescriptorPool() {
-	std::array<VkDescriptorPoolSize, 2> poolSizes{};
+	std::array<VkDescriptorPoolSize, 3> poolSizes{};
+	// Heightmap
 	poolSizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
 	poolSizes[0].descriptorCount = static_cast<uint32_t>(swapchain.maxFramesInFlight() * 2);
 	poolSizes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
 	poolSizes[1].descriptorCount = static_cast<uint32_t>(swapchain.maxFramesInFlight());
 
+	// Erosion
+	poolSizes[2].type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+	poolSizes[2].descriptorCount = 4; // 2 sets with 2 images
+
 	VkDescriptorPoolCreateInfo poolInfo{};
 	poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
 	poolInfo.poolSizeCount = static_cast<uint32_t>(poolSizes.size());
 	poolInfo.pPoolSizes = poolSizes.data();
-	poolInfo.maxSets = static_cast<uint32_t>(swapchain.maxFramesInFlight());
+	// (rendering + erosion computation) = (maxFramesInFlight + 2)
+	poolInfo.maxSets = static_cast<uint32_t>(swapchain.maxFramesInFlight() + 2);
 
-	if (vkCreateDescriptorPool(device.handle(), &poolInfo, nullptr, &descriptorPool) != VK_SUCCESS) {
-		throw std::runtime_error("failed to create descriptor pool!");
-	}
+	VkResult error_code = vkCreateDescriptorPool(device.handle(), &poolInfo, nullptr, &descriptorPool);
+	handleVkResult(error_code, "Failed to allocate descriptor pool");
 }
 
 void Renderer::createDescriptorSets() {
@@ -620,6 +641,72 @@ void Renderer::createDescriptorSets() {
 	}
 }
 
+
+void Renderer::createErosionDescriptorSets() {
+	std::array<VkDescriptorSetLayout, 2> layouts = { erosionDescriptorSetLayout, erosionDescriptorSetLayout };
+	VkDescriptorSetAllocateInfo allocInfo{};
+	allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+	allocInfo.descriptorPool = descriptorPool;
+	allocInfo.descriptorSetCount = 2; // ping-ponging
+	allocInfo.pSetLayouts = layouts.data();
+
+	VkResult error_code = vkAllocateDescriptorSets(device.handle(), &allocInfo, erosionDescriptorSets.data());
+	handleVkResult(error_code, "Failed to allocate erosion descriptor sets");
+
+	VkDescriptorImageInfo ping1{};
+	ping1.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+	ping1.imageView = erosionImages[0].view();
+	ping1.sampler = VK_NULL_HANDLE;
+
+	VkWriteDescriptorSet ping1Write{};
+	ping1Write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+	ping1Write.dstSet = erosionDescriptorSets[0];
+	ping1Write.dstBinding = 0;
+	ping1Write.dstArrayElement = 0;
+	ping1Write.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+	ping1Write.descriptorCount = 1;
+	ping1Write.pImageInfo = &ping1;
+
+	VkDescriptorImageInfo pong1{};
+	pong1.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+	pong1.imageView = erosionImages[1].view();
+	pong1.sampler = VK_NULL_HANDLE;
+
+	VkWriteDescriptorSet pong1Write{};
+	pong1Write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+	pong1Write.dstSet = erosionDescriptorSets[0];
+	pong1Write.dstBinding = 1;
+	pong1Write.dstArrayElement = 0;
+	pong1Write.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+	pong1Write.descriptorCount = 1;
+	pong1Write.pImageInfo = &pong1;
+
+	auto ping2 = pong1;
+	auto pong2 = ping1;
+
+	VkWriteDescriptorSet ping2Write{};
+	ping2Write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+	ping2Write.dstSet = erosionDescriptorSets[1];
+	ping2Write.dstBinding = 0;
+	ping2Write.dstArrayElement = 0;
+	ping2Write.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+	ping2Write.descriptorCount = 1;
+	ping2Write.pImageInfo = &ping2;
+
+	VkWriteDescriptorSet pong2Write{};
+	pong2Write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+	pong2Write.dstSet = erosionDescriptorSets[1];
+	pong2Write.dstBinding = 1;
+	pong2Write.dstArrayElement = 0;
+	pong2Write.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+	pong2Write.descriptorCount = 1;
+	pong2Write.pImageInfo = &pong2;
+
+	VkWriteDescriptorSet writes[] = { ping1Write, pong1Write, ping2Write, pong2Write };
+	vkUpdateDescriptorSets(device.handle(), 4, writes, 0, nullptr);
+}
+
+
 uint32_t Renderer::findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties) {
 	VkPhysicalDeviceMemoryProperties memProperties;
 	vkGetPhysicalDeviceMemoryProperties(physicalDevice.handle(), &memProperties);
@@ -635,19 +722,9 @@ uint32_t Renderer::findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags pro
 
 
 void Renderer::createCommandBuffers() {
-	/*commandBuffers.resize(swapchain.maxFramesInFlight());
-
-	VkCommandBufferAllocateInfo allocInfo{};
-	allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-	allocInfo.commandPool = commandPool;
-	allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-	allocInfo.commandBufferCount = (uint32_t)commandBuffers.size();
-
-	if (vkAllocateCommandBuffers(device.handle(), &allocInfo, commandBuffers.data()) != VK_SUCCESS) {
-		throw std::runtime_error("failed to allocate command buffers!");
-	}*/
-
 	commandBuffers = beginCommands(device.handle(), commandPool, swapchain.maxFramesInFlight());
+	erosionCommandBuffers[0] = createSingleCommand(device.handle(), erosionCommandPool);
+	erosionCommandBuffers[1] = createSingleCommand(device.handle(), erosionCommandPool);
 
 	DEBUG_LOG << "Successfully created command buffer" << std::endl;
 }
@@ -708,6 +785,16 @@ void Renderer::recordCommandBuffer(VkCommandBuffer _commandBuffer, uint32_t imag
 }
 
 
+void Renderer::createErosionFence() {
+	VkFenceCreateInfo fenceInfo{};
+	fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+	fenceInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
+
+	VkResult error_code = vkCreateFence(device.handle(), &fenceInfo, nullptr, &erosionFence);
+	handleVkResult(error_code, "Failed to create erosion fence");
+}
+
+
 void Renderer::beginEroding() {
 	setupThread();
 }
@@ -718,9 +805,138 @@ void Renderer::endEroding() {
 }
 
 
+void Renderer::runErosionPipeline(uint32_t index) {
+	vkWaitForFences(device.handle(), 1, &erosionFence, true, UINT64_MAX);
+	vkResetFences(device.handle(), 1, &erosionFence);
+
+	uint32_t nextIndex = (index + 1) % 2;
+
+	VkCommandBufferBeginInfo beginInfo{};
+	beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+
+	VkResult error_code = vkBeginCommandBuffer(erosionCommandBuffers[index], &beginInfo);
+	handleVkResult(error_code, "Failed to begin recording command buffer");
+
+	vkCmdBindPipeline(erosionCommandBuffers[index], VK_PIPELINE_BIND_POINT_COMPUTE, erosionPipeline);
+
+	vkCmdBindDescriptorSets(erosionCommandBuffers[index], VK_PIPELINE_BIND_POINT_COMPUTE, erosionPipelineLayout, 0, 1, &erosionDescriptorSets[index], 0, nullptr);
+
+	vkCmdDispatch(erosionCommandBuffers[index], 64, 64, 1);
+
+	// SET UP FOR SRC COPY
+	{
+		VkImageMemoryBarrier barrier{};
+		barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+		barrier.oldLayout = VK_IMAGE_LAYOUT_GENERAL;
+		barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+		barrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;       // Compute write must finish
+		barrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;     // Copy read can then begin
+		barrier.image = erosionImages[nextIndex].handle();
+		barrier.subresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
+
+		vkCmdPipelineBarrier(
+			erosionCommandBuffers[index],
+			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, // Source: Compute stage
+			VK_PIPELINE_STAGE_TRANSFER_BIT,       // Destination: Copy stage
+			0, 0, nullptr, 0, nullptr, 1, &barrier
+		);
+	}
+	// SET UP FOR DST COPY
+	{
+		VkImageMemoryBarrier barrier{};
+		barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+		barrier.oldLayout = VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL;
+		barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+		barrier.srcAccessMask = VK_ACCESS_SHADER_READ_BIT;       
+		barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;     
+		barrier.image = renderHeightImage.handle();
+		barrier.subresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
+
+		vkCmdPipelineBarrier(
+			erosionCommandBuffers[index],
+			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+			VK_PIPELINE_STAGE_TRANSFER_BIT,
+			0, 0, nullptr, 0, nullptr, 1, &barrier
+		);
+	}
+
+	VkImageCopy copyRegion{};
+	copyRegion.extent = { renderHeightImage.extent().width, renderHeightImage.extent().height, 1};
+	copyRegion.srcSubresource = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1 };
+	copyRegion.dstSubresource = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1 };
+
+	// COPY IT
+	vkCmdCopyImage(
+		erosionCommandBuffers[index],
+		erosionImages[nextIndex].handle(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+		renderHeightImage.handle(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+		1, &copyRegion
+	);
+
+	// RESTORE FOR ERODING
+	{
+		VkImageMemoryBarrier barrier{};
+		barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+		barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+		barrier.newLayout = VK_IMAGE_LAYOUT_GENERAL;
+		barrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;       // Compute write must finish
+		barrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;     // Copy read can then begin
+		barrier.image = erosionImages[nextIndex].handle();
+		barrier.subresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
+
+		vkCmdPipelineBarrier(
+			erosionCommandBuffers[index],
+			VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, // Source: Compute stage
+			VK_PIPELINE_STAGE_TRANSFER_BIT,       // Destination: Copy stage
+			0, 0, nullptr, 0, nullptr, 1, &barrier
+		);
+	}
+	// RESTORE FOR RENDERING
+	{
+		VkImageMemoryBarrier barrier{};
+		barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+		barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+		barrier.newLayout = VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL;
+		barrier.srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;      
+		barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;    
+		barrier.image = renderHeightImage.handle();
+		barrier.subresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
+
+		vkCmdPipelineBarrier(
+			erosionCommandBuffers[index],
+			VK_PIPELINE_STAGE_TRANSFER_BIT,
+			VK_PIPELINE_STAGE_VERTEX_SHADER_BIT,
+			0, 0, nullptr, 0, nullptr, 1, &barrier
+		);
+	}
+
+	error_code = vkEndCommandBuffer(erosionCommandBuffers[index]);
+	handleVkResult(error_code, "Failed to record erosion command buffer");
+
+	VkSubmitInfo submitInfo{};
+	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+
+	VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT };
+
+	submitInfo.waitSemaphoreCount = 1;
+	submitInfo.pWaitSemaphores = &renderCompleteSemaphore;
+	submitInfo.pWaitDstStageMask = waitStages;
+
+	submitInfo.commandBufferCount = 1;
+	submitInfo.pCommandBuffers = &erosionCommandBuffers[index];
+
+	submitInfo.signalSemaphoreCount = 1;
+	submitInfo.pSignalSemaphores = &copyCompleteSemaphore;
+
+	device.submitCompute({ submitInfo }, erosionFence);
+}
+
+
 void Renderer::erode() {
+	uint32_t index = 0;
 	while (erosionRunning) {
-		//vkWaitForFences(device.handle(), 1, &renderCompleteFence, true, UINT64_MAX);
+		runErosionPipeline(index);
+		index = (index + 1) & 2;
 	}
 }
 
@@ -744,6 +960,8 @@ void Renderer::joinThread() {
 void Renderer::destroy() {
 	joinThread();
 
+	vkDestroyFence(device.handle(), erosionFence, nullptr);
+
 	vkDestroySemaphore(device.handle(), copyCompleteSemaphore, nullptr);
 	vkDestroySemaphore(device.handle(), renderCompleteSemaphore, nullptr);
 
@@ -757,8 +975,9 @@ void Renderer::destroy() {
 	}
 
 	vkDestroyDescriptorPool(device.handle(), descriptorPool, nullptr);
-
 	vkDestroyDescriptorSetLayout(device.handle(), descriptorSetLayout, nullptr);
+
+	vkDestroyDescriptorSetLayout(device.handle(), erosionDescriptorSetLayout, nullptr);
 
 	vkDestroySampler(device.handle(), renderHeightSampler, nullptr);
 	renderHeightImage.destroy();
@@ -772,6 +991,7 @@ void Renderer::destroy() {
 	vertexBuffer.destroy();
 
 	vkDestroyCommandPool(device.handle(), commandPool, nullptr);
+	vkDestroyCommandPool(device.handle(), erosionCommandPool, nullptr);
 
 	device.destroy();
 	surface.destroy();
@@ -846,7 +1066,6 @@ void Renderer::drawFrame() {
 	submitInfo.signalSemaphoreCount = 2;
 	submitInfo.pSignalSemaphores = signalSemaphores;
 
-	//vkWaitForFences(device.handle(), 1, &copyCompleteFence, true, UINT64_MAX);
 	device.submitGraphics({ submitInfo }, swapchain.currentFence());
 
 	VkSubpassDependency dependency{};

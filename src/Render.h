@@ -118,6 +118,9 @@ private:
 	VkPipeline erosionPipeline;
 	VkDescriptorSetLayout erosionDescriptorSetLayout;
 	std::array<VkDescriptorSet, 2> erosionDescriptorSets;
+	std::array<VkCommandBuffer, 2> erosionCommandBuffers;
+	VkCommandPool erosionCommandPool;
+	VkFence erosionFence;
 
 	MapDetailsObject mapDetailsData;
 
@@ -140,6 +143,7 @@ private:
 	void createDescriptorSets();
 	void createErosionDescriptorSets();
 	void createCommandBuffers();
+	void createErosionFence();
 
 	void createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory);
 
@@ -149,6 +153,7 @@ private:
 
 	uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties);
 
+	void runErosionPipeline(uint32_t index);
 	void erode();
 	void setupThread();
 	void joinThread();
