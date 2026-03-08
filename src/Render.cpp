@@ -460,10 +460,11 @@ void Renderer::updateCurrentErosionImage(TerrainGenerator& generator) {
 
 
 void Renderer::createHeightImage(TerrainGenerator& generator) {
-	renderHeightImage = Image::createStorage(device, generator.details.width, generator.details.height, VK_FORMAT_R32_SFLOAT, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT);
+	renderHeightImage = Image::createStorage(device, generator.details.width, generator.details.height, VK_FORMAT_R32_SFLOAT, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT, true);
 
 	VkSemaphoreCreateInfo semaphoreInfo{};
 	semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+
 	VkResult error_code = vkCreateSemaphore(device.handle(), &semaphoreInfo, nullptr, &copyCompleteSemaphore);
 	handleVkResult(error_code, "Failed to create fence");
 	error_code = vkCreateSemaphore(device.handle(), &semaphoreInfo, nullptr, &renderCompleteSemaphore);

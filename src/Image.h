@@ -55,16 +55,16 @@ private:
 		layout_ = std::exchange(other.layout_, VK_IMAGE_LAYOUT_UNDEFINED);
 	}
 	
-	void genImage(VkPhysicalDevice _physicalDevice, VkImageUsageFlags usage, VkSampleCountFlagBits samples);
+	void genImage(VkPhysicalDevice _physicalDevice, VkImageUsageFlags usage, VkSampleCountFlagBits samples, bool concurrent);
 	void genImageView(VkFormat _format, VkImageAspectFlags _aspectFlags);
 
 	Image(const LogicalDevice* device,
 		uint32_t width, uint32_t height,
 		VkFormat format, VkImageUsageFlags usage, VkImageAspectFlags aspect,
-		VkSampleCountFlagBits samples = VK_SAMPLE_COUNT_1_BIT) : device_(device), format_(format)
+		VkSampleCountFlagBits samples = VK_SAMPLE_COUNT_1_BIT, bool concurrent = false) : device_(device), format_(format)
 	{
 		extent_.width = width; extent_.height = height;
-		genImage(device->physicalDeviceHandle(), usage, samples);
+		genImage(device->physicalDeviceHandle(), usage, samples, concurrent);
 		genImageView(format, aspect);
 	}
 
@@ -80,8 +80,8 @@ public:
 	static Image createDepth(const LogicalDevice& dev, uint32_t width, uint32_t height, VkFormat format) {
 		return Image(&dev, width, height, format, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_IMAGE_ASPECT_DEPTH_BIT);
 	}
-	static Image createStorage(const LogicalDevice& dev, uint32_t width, uint32_t height, VkFormat format, VkImageUsageFlags extraUsage = 0) {
-		return Image(&dev, width, height, format, VK_IMAGE_USAGE_STORAGE_BIT | extraUsage, VK_IMAGE_ASPECT_COLOR_BIT);
+	static Image createStorage(const LogicalDevice& dev, uint32_t width, uint32_t height, VkFormat format, VkImageUsageFlags extraUsage = 0, bool concurrent = false) {
+		return Image(&dev, width, height, format, VK_IMAGE_USAGE_STORAGE_BIT | extraUsage, VK_IMAGE_ASPECT_COLOR_BIT, VK_SAMPLE_COUNT_1_BIT, concurrent);
 	}
 
 	Image() noexcept = default;
