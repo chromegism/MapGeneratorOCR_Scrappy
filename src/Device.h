@@ -42,8 +42,9 @@ public:
 	struct QueueFamilyIndices {
 		std::optional<uint32_t> graphicsFamily;
 		std::optional<uint32_t> presentFamily;
+		std::optional<uint32_t> computeFamily;
 
-		bool isComplete() const { return graphicsFamily.has_value() && presentFamily.has_value(); }
+		bool isComplete() const { return graphicsFamily.has_value() && presentFamily.has_value() && computeFamily.has_value(); }
 	};
 
 	struct SwapChainSupportDetails {
@@ -127,8 +128,8 @@ public:
 	}
 
 	Queue() noexcept = default;
-	Queue(VkDevice _deviceHandle, uint32_t _familyIndex) : deviceHandle_(_deviceHandle), familyIndex_(_familyIndex) { 
-		vkGetDeviceQueue(_deviceHandle, _familyIndex, 0, &handle_);
+	Queue(VkDevice deviceHandle, uint32_t familyIndex, uint32_t queueIndex = 0) : deviceHandle_(deviceHandle), familyIndex_(familyIndex) { 
+		vkGetDeviceQueue(deviceHandle, familyIndex, queueIndex, &handle_);
 	}
 	Queue(const Queue& other) noexcept {
 		setHandles(other.deviceHandle(), other.handle(), other.familyIndex());
@@ -147,6 +148,17 @@ public:
 		VkResult error_code = vkQueueSubmit(handle_, infoCount, infos, fence);
 		handleVkResult(error_code, "Failed to call vkQueueSubmit");
 	}
+	void submit(VkCommandPool commandPool, VkCommandBuffer commandBuffer) const {
+		VkSubmitInfo submitInfo{};
+		submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+		submitInfo.commandBufferCount = 1;
+		submitInfo.pCommandBuffers = &commandBuffer;
+
+		vkQueueSubmit(handle_, 1, &submitInfo, VK_NULL_HANDLE);
+		vkQueueWaitIdle(handle_);
+
+		vkFreeCommandBuffers(deviceHandle_, commandPool, 1, &commandBuffer);
+	}
 };
 
 class LogicalDevice {
@@ -155,25 +167,29 @@ class LogicalDevice {
 
 	Queue graphicsQueue_;
 	Queue presentQueue_;
+	Queue computeQueue_;
 	std::mutex graphicsMutex_;
 	std::mutex presentMutex_;
+	std::mutex computeMutex_;
 
 	void clearHandles() noexcept {
 		physicalDevice_ = nullptr;
 		handle_ = VK_NULL_HANDLE;
 		graphicsQueue_.clearHandles();
 		presentQueue_.clearHandles();
+		computeQueue_.clearHandles();
 	}
 	void exchangeHandles(LogicalDevice& other) noexcept {
 		physicalDevice_ = std::exchange(other.physicalDevice_, nullptr);
 		handle_ = std::exchange(other.handle_, VK_NULL_HANDLE);
 		graphicsQueue_ = std::move(other.graphicsQueue_);
 		presentQueue_ = std::move(other.presentQueue_);
+		computeQueue_ = std::move(other.computeQueue_);
 	}
 
 public:
 	LogicalDevice() noexcept = default;
-	LogicalDevice(const PhysicalDevice&, const PhysicalDevice::Conditions& = {});
+	LogicalDevice(const PhysicalDevice&, const PhysicalDevice::Conditions & = {});
 	LogicalDevice(const LogicalDevice&) noexcept = delete;
 
 	LogicalDevice(LogicalDevice&& other) noexcept {
@@ -189,7 +205,7 @@ public:
 	}
 	~LogicalDevice() { destroy(); }
 
-	const PhysicalDevice& physicalDevice() const noexcept { 
+	const PhysicalDevice& physicalDevice() const noexcept {
 		assert(physicalDevice_ != nullptr);
 		return *physicalDevice_;
 	}
@@ -211,22 +227,17 @@ public:
 		std::lock_guard<std::mutex> lock(graphicsMutex_);
 		graphicsQueue_.submit(infos, fence);
 	}
-	void present(VkPresentInfoKHR* pPresentInfo) { 
+	void present(VkPresentInfoKHR* pPresentInfo) {
 		std::lock_guard<std::mutex> lock(presentMutex_);
 		VkResult error_code = vkQueuePresentKHR(presentQueue_.handle(), pPresentInfo);
 		handleVkResult(error_code, "Failed to call vkQueuePresentKHR");
 	}
 	void graphicsSubmitCommand(VkCommandPool commandPool, VkCommandBuffer commandBuffer) {
-		VkSubmitInfo submitInfo{};
-		submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-		submitInfo.commandBufferCount = 1;
-		submitInfo.pCommandBuffers = &commandBuffer;
-
-		std::unique_lock<std::mutex> lock(presentMutex_);
-		vkQueueSubmit(graphicsQueue_.handle(), 1, &submitInfo, VK_NULL_HANDLE);
-		vkQueueWaitIdle(graphicsQueue_.handle());
-		lock.unlock();
-
-		vkFreeCommandBuffers(handle_, commandPool, 1, &commandBuffer);
+		std::lock_guard<std::mutex> lock(graphicsMutex_);
+		graphicsQueue_.submit(commandPool, commandBuffer);
+	}
+	void computeSubmitCommand(VkCommandPool commandPool, VkCommandBuffer commandBuffer) {
+		std::lock_guard<std::mutex> lock(computeMutex_);
+		computeQueue_.submit(commandPool, commandBuffer);
 	}
 };

@@ -469,19 +469,12 @@ void Renderer::createUniformBuffers() {
 
 	VkDeviceSize totalSize = mvpSize + mapSize;
 
-	uniformBuffers.resize(swapchain.maxFramesInFlight());
-	uniformBuffersMemory.resize(swapchain.maxFramesInFlight());
+	uniformBuffers.reserve(swapchain.maxFramesInFlight());
 	uniformBuffersMapped.resize(swapchain.maxFramesInFlight());
 
-	
-
 	for (size_t i = 0; i < swapchain.maxFramesInFlight(); i++) {
-		createBuffer(totalSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-			VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-			uniformBuffers[i], uniformBuffersMemory[i]);
-
-		// Map once
-		vkMapMemory(device.handle(), uniformBuffersMemory[i], 0, totalSize, 0, &uniformBuffersMapped[i]);
+		uniformBuffers.emplace_back(Buffer::createUniform(device, totalSize));
+		uniformBuffersMapped[i] = uniformBuffers[i].mapMemory<void>();
 	}
 }
 
@@ -519,7 +512,7 @@ void Renderer::createDescriptorSets() {
 	for (size_t i = 0; i < swapchain.maxFramesInFlight(); i++) {
 		// --- MVP buffer (binding 0) ---
 		VkDescriptorBufferInfo mvpBufferInfo{};
-		mvpBufferInfo.buffer = uniformBuffers[i];
+		mvpBufferInfo.buffer = uniformBuffers[i].handle();
 		mvpBufferInfo.offset = 0;
 		mvpBufferInfo.range = sizeof(MVPBufferObject);
 
@@ -534,7 +527,7 @@ void Renderer::createDescriptorSets() {
 
 		// --- MapDetails buffer (binding 1) ---
 		VkDescriptorBufferInfo mapDetailsBufferInfo{};
-		mapDetailsBufferInfo.buffer = uniformBuffers[i];
+		mapDetailsBufferInfo.buffer = uniformBuffers[i].handle();
 		mapDetailsBufferInfo.offset = sizeof(MVPBufferObject); // assuming tightly packed in same buffer
 		mapDetailsBufferInfo.range = sizeof(MapDetailsObject);
 
@@ -665,7 +658,7 @@ void Renderer::endEroding() {
 }
 
 
-void Renderer::erode(uint32_t steps) {
+void Renderer::erode() {
 	while (erosionRunning) {
 		
 	}
@@ -675,7 +668,7 @@ void Renderer::erode(uint32_t steps) {
 void Renderer::setupThread() {
 	if (erosionThread.joinable()) return;
 	erosionRunning = true;
-	erosionThread = std::thread(&Renderer::erode, this, 1000);
+	erosionThread = std::thread(&Renderer::erode, this);
 }
 
 
@@ -699,9 +692,8 @@ void Renderer::destroy() {
 
 	swapchain.destroy();
 
-	for (size_t i = 0; i < uniformBuffers.size(); i++) {
-		vkDestroyBuffer(device.handle(), uniformBuffers.at(i), nullptr);
-		vkFreeMemory(device.handle(), uniformBuffersMemory.at(i), nullptr);
+	for (auto& uniformBuffer : uniformBuffers) {
+		uniformBuffer.destroy();
 	}
 
 	vkDestroyDescriptorPool(device.handle(), descriptorPool, nullptr);
@@ -731,9 +723,9 @@ Renderer::~Renderer() {
 }
 
 void Renderer::updateUniformBuffers(uint32_t currentImage) {
-	static auto startTime = std::chrono::high_resolution_clock::now();
+	static auto startTime = std::chrono::steady_clock::now();
 
-	auto currentTime = std::chrono::high_resolution_clock::now();
+	auto currentTime = std::chrono::steady_clock::now();
 	float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
 
 	MVPBufferObject mvpData{};

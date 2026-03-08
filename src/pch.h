@@ -12,6 +12,7 @@
 #include <random>
 #include <thread>
 #include <mutex>
+#include <unordered_map>
 
 // Algorithms/ranges (widely used)
 #include <algorithm>

@@ -61,6 +61,7 @@ public:
 
 	void beginEroding();
 	void endEroding();
+	// Must go at the end of the frame's gpu operations
 	void drawFrame();
 	void waitIdle();
 
@@ -85,8 +86,7 @@ private:
 	std::vector<VkCommandBuffer> commandBuffers;
 
 	// Make these into objects
-	std::vector<VkBuffer> uniformBuffers;
-	std::vector<VkDeviceMemory> uniformBuffersMemory;
+	std::vector<Buffer> uniformBuffers;
 	std::vector<void*> uniformBuffersMapped;
 
 	VkDescriptorPool descriptorPool;
@@ -107,6 +107,7 @@ private:
 	VkSampler renderHeightSampler;
 	//Image gradientImage;
 	//VkSampler gradientSampler;
+	Queue computeQueue;
 
 	std::thread erosionThread;
 	std::atomic<bool> erosionRunning = false;
@@ -138,7 +139,7 @@ private:
 
 	uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties);
 
-	void erode(uint32_t);
+	void erode();
 	void setupThread();
 	void joinThread();
 };

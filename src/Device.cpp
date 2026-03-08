@@ -87,6 +87,9 @@ PhysicalDevice::QueueFamilyIndices PhysicalDevice::findQueueFamilies(VkPhysicalD
 		if (presentSupport) {
 			indices.presentFamily = i;
 		}
+		if (queueFamily.queueFlags & VK_QUEUE_COMPUTE_BIT) {
+			indices.computeFamily = i;
+		}
 
 		if (indices.isComplete()) break;
 
@@ -177,20 +180,43 @@ PhysicalDevice PhysicalDevice::pickBest(const Instance& _instance, const Surface
 	return pickBest(_instance.handle(), _surface.handle());
 }
 
+
+template<typename T>
+std::unordered_map<T, uint32_t> respectiveReferencesCounter(std::vector<T> inps) {
+	std::unordered_map<T, uint32_t> counts{};
+	for (const auto& inp : inps) {
+		counts[inp]++;
+	}
+	return counts;
+}
+
+
 LogicalDevice::LogicalDevice(const PhysicalDevice& physicalDevice, const PhysicalDevice::Conditions& conditions) {
 	PhysicalDevice::QueueFamilyIndices indices = physicalDevice.queueFamilyIndices();
 	std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
-	std::unordered_set<uint32_t> uniqueQueueFamilies = { indices.graphicsFamily.value(), indices.presentFamily.value() };
+	std::vector<uint32_t> queueFamilies = { indices.graphicsFamily.value(), indices.presentFamily.value(), 0 };
 
-	queueCreateInfos.reserve(uniqueQueueFamilies.size());
-	float queuePriority = 1.f;
-	for (uint32_t queueFamily : uniqueQueueFamilies) {
+	std::unordered_map<uint32_t, uint32_t> queueFamilyIndexCounts = respectiveReferencesCounter(queueFamilies);
+
+	queueCreateInfos.reserve(queueFamilyIndexCounts.size());
+
+	std::vector<std::vector<float>> priorities;
+	priorities.reserve(queueFamilyIndexCounts.size());
+
+	uint32_t index = 0;
+	for (const auto& [queueFamily, count] : queueFamilyIndexCounts) {
+		priorities.emplace_back(std::vector<float>(count));
+		for (uint32_t i = 0; i < count; i++) {
+			priorities[index][i] = static_cast<float>(count - i) / static_cast<float>(count);
+		}
+
 		VkDeviceQueueCreateInfo queueCreateInfo{};
 		queueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
 		queueCreateInfo.queueFamilyIndex = queueFamily;
-		queueCreateInfo.queueCount = 1;
-		queueCreateInfo.pQueuePriorities = &queuePriority;
+		queueCreateInfo.queueCount = count;
+		queueCreateInfo.pQueuePriorities = priorities[index].data();
 		queueCreateInfos.emplace_back(queueCreateInfo);
+		index++;
 	}
 
 
@@ -207,6 +233,11 @@ LogicalDevice::LogicalDevice(const PhysicalDevice& physicalDevice, const Physica
 	}
 
 	physicalDevice_ = &physicalDevice;
-	graphicsQueue_ = Queue(handle_, indices.graphicsFamily.value());
-	presentQueue_ = Queue(handle_, indices.presentFamily.value());
+	std::unordered_map<uint32_t, uint32_t> allocatedCounts{};
+	graphicsQueue_ = Queue(handle_, indices.graphicsFamily.value(), allocatedCounts[indices.graphicsFamily.value()]);
+	allocatedCounts[indices.graphicsFamily.value()]++;
+	presentQueue_ = Queue(handle_, indices.presentFamily.value(), allocatedCounts[indices.presentFamily.value()]);
+	allocatedCounts[indices.presentFamily.value()]++;
+	computeQueue_ = Queue(handle_, indices.computeFamily.value(), allocatedCounts[indices.computeFamily.value()]);
+	allocatedCounts[indices.computeFamily.value()]++;
 }
